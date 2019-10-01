@@ -4,6 +4,7 @@ import GrowdropArtifact from "../../build/contracts/Growdrop.json";
 import EIP20Interface from "../../build/contracts/EIP20Interface.json";
 import SimpleTokenABI from "./SimpleTokenABI.json";
 import UniswapExchangeInterfaceABI from "./UniswapExchangeInterfaceABI.json";
+//import Torus from "@toruslabs/torus-embed";
 
 const App = {
   web3: null,
@@ -14,6 +15,7 @@ const App = {
   GrowdropManager: null,
   UniswapDAIExchange: null,
   UniswapSimpleTokenExchangeAddress: "0x0c32A8C03e96347BaB0D4caA8F936818E71A0faB",
+  torusWeb3: null,
 
   withDecimal: function(number) {
     return String(Number(number)/Number("1000000000000000000"));
@@ -23,6 +25,8 @@ const App = {
   new contract instance
   abi => contract abi (json type)
   address => contract address (String)
+
+  return => contract instance
   */
   contractInit: function(abi, address) {
     const { web3 } = App;
@@ -31,19 +35,28 @@ const App = {
 
   /*
   get metamask current account (address)
+
+  return => metamask current account address (String)
   */
-  getMetamaskCurrentAccount: async function () {
+  getProviderCurrentAccount: async function () {
     const { web3 } = App;
     const accounts = await web3.eth.getAccounts();
     return accounts[0];
   },
 
+  /*
+  get balance of account
+  account => account address to get balance (String)
+
+  return => account eth balance (Number)
+  */
   GetBalanceCall: async function (account) {
     const { web3 } = App;
     return await web3.eth.getBalance(account);
   },
 
   start: async function() {
+    //await this.torustest();
     const { web3 } = this;
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = GrowdropManagerArtifact.networks[networkId];
@@ -51,8 +64,8 @@ const App = {
     this.GrowdropManager = this.contractInit(GrowdropManagerArtifact.abi, deployedNetwork.address);
     this.DAI = this.contractInit(EIP20Interface.abi, "0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa");
     this.UniswapDAIExchange = this.contractInit(UniswapExchangeInterfaceABI.abi, "0xaf51baaa766b65e8b3ee0c2c33186325ed01ebd5");
-
-    this.account = await this.getMetamaskCurrentAccount();
+    
+    this.account = await this.getProviderCurrentAccount();
     await this.refreshFirst();
   },
 
@@ -70,6 +83,8 @@ const App = {
   Uniswap token to eth price call
   contractinstance => Uniswap Exchange contract instance 
   amount => amount of token to get eth price (Number)
+
+  return => amount of eth (Number)
   */
   UniswapTokenToEthInputPriceCall: async function(contractinstance, amount) {
     return await contractinstance.methods.getTokenToEthInputPrice(amount).call();
@@ -79,6 +94,8 @@ const App = {
   ERC20 Token's balance call
   contractinstance => ERC20 contract instance 
   account => address to get balance of (String)
+
+  return => account balance of ERC20 Token (Number)
   */
   TokenBalanceOfCall: async function(contractinstance, account) {
     return await contractinstance.methods.balanceOf(account).call();
@@ -89,6 +106,8 @@ const App = {
   contractinstance => ERC20 contract instance
   from => address who approved (String)
   to => address from approved to (String)
+
+  return => approved amount of 'to' address from 'from' address
   */
   TokenAllowanceCall: async function(contractinstance, from, to) {
     return await contractinstance.methods.allowance(from, to).call();
@@ -97,6 +116,19 @@ const App = {
   /*
   Growdrop Contract Data call
   contractinstance => Growdrop contract instance
+
+  return =>
+  address of Growdrop Token Contract (String)
+  address of beneficiary (String)
+  selling amount of Growdrop Token (Number)
+  Growdrop contract start time (Number unix timestamp)
+  Growdrop contract end time (Number unix timestamp)
+  Growdrop contract total interest + total invested amount (Number)
+  Growdrop contract total invested amount (Number)
+  Growdrop contract over (Boolean true : over, false : not over)
+  Growdrop contract Start (Boolean true : start, false : not start)
+  Growdrop token amount to uniswap pool (Number)
+  Growdrop interest percentage to uniswap pool (Number 1~99)
   */
   GetGrowdropDataCall: async function(contractinstance) {
     return await contractinstance.methods.getGrowdropData().call();
@@ -106,6 +138,13 @@ const App = {
   Growdrop Contract's User Data call
   contractinstance => Growdrop contract instance
   account => account to get User Data (String)
+
+  return => 
+  investor's invested amount to Growdrop contract (Number)
+  investor's invested amount + accrued interest to Growdrop contract (Number)
+  investor's accrued interest to Growdrop contract (Number)
+  investor's interest percentage of total Growdrop contract interest (Number)
+  investor's Growdrop token amount calculated by investor's interest percentage (Number)
   */
   GetUserDataCall: async function(contractinstance, account) {
     return await contractinstance.methods.getUserData().call({from: account});
@@ -114,6 +153,9 @@ const App = {
   /*
   Growdrop Contract List's Length call
   contractinstance => GrowdropManager contract instance
+
+  return => 
+  Growdrop contracts list length (Number)
   */
   GetGrowdropListLengthCall: async function(contractinstance) {
     return await contractinstance.methods.getGrowdropListLength().call();
@@ -123,6 +165,9 @@ const App = {
   Growdrop Contract address call
   contractinstance => GrowdropManager contract instance
   contractIdx => Growdrop contract index (Number)
+
+  return =>
+  Growdrop contract address (String)
   */
   GetGrowdropCall: async function(contractinstance, contractIdx) {
     return await contractinstance.methods.getGrowdrop(contractIdx).call();
@@ -132,6 +177,9 @@ const App = {
   address's invested amount + accrued interest call
   contractinstance => Growdrop contract instance
   account => address to get data (String)
+
+  return =>
+  user's invested amount + accrued interest to Growdrop contract (Number)
   */
   TotalPerAddressCall: async function(contractinstance, account) {
     return await contractinstance.methods.TotalPerAddress(account).call();
@@ -141,6 +189,9 @@ const App = {
   address's invested amount call
   contractinstance => Growdrop contract instance
   account => address to get data (String)
+
+  return =>
+  user's invested amount to Growdrop contract (Number)
   */
   InvestAmountPerAddressCall: async function(contractinstance, account) {
     return await contractinstance.methods.InvestAmountPerAddress(account).call();
@@ -150,6 +201,9 @@ const App = {
   address's total invested amount call (all Growdrop contracts)
   contractinstance => GrowdropManager contract instance
   account => address to get data (String)
+
+  return =>
+  user's invested amount to all Growdrop contracts (Number)
   */
   TotalUserInvestedAmountCall: async function(contractinstance, account) {
     return await contractinstance.methods.TotalUserInvestedAmount(account).call();
@@ -159,6 +213,9 @@ const App = {
   Growdrop contract's total user count call
   contractinstance => GrowdropManager contract instance
   account => Growdrop contract address to get data (String)
+
+  return =>
+  user count to Growdrop contract (Number)
   */
   TotalUserCountCall: async function(contractinstance, account) {
     return await contractinstance.methods.TotalUserCount(account).call();
@@ -167,6 +224,9 @@ const App = {
   /*
   Growdrop contract's total invested amount call
   contractinstance => Growdrop contract instance
+
+  return =>
+  total invested amount to Growdrop contract (Number)
   */
   TotalMintedAmountCall: async function(contractinstance) {
     return await contractinstance.methods.TotalMintedAmount().call();
@@ -175,6 +235,9 @@ const App = {
   /*
   Growdrop contract's selling token contract address call
   contractinstance => Growdrop contract instance
+
+  return =>
+  address of Growdrop token contract (String)
   */
   GrowdropTokenCall: async function(contractinstance) {
     return await contractinstance.methods.GrowdropToken().call();
@@ -183,6 +246,9 @@ const App = {
   /*
   Growdrop contract's end time call
   contractinstance => Growdrop contract instance
+
+  return => 
+  Growdrop end time (Number unix timestamp)
   */
   GrowdropEndTimeCall: async function(contractinstance) {
     return await contractinstance.methods.GrowdropEndTime().call();
@@ -191,9 +257,35 @@ const App = {
   /*
   Growdrop contract's beneficiary call
   contractinstance => Growdrop contract instance
+
+  return =>
+  address of beneficiary (String)
   */
   BeneficiaryCall: async function(contractinstance) {
     return await contractinstance.methods.Beneficiary().call();
+  },
+
+  /*
+  Growdrop contract's owner call
+  contractinstance => Growdrop contract instance
+
+  return =>
+  address of owner (String)
+  */
+  OwnerCall: async function(contractinstance) {
+    return await contractinstance.methods.Owner().call();
+  },
+
+  /*
+  Growdrop contract's owner check call
+  contractinstance => Growdrop contract instance
+  account => address to check if it's owner
+
+  return =>
+  (Boolean true : owner, false : not owner)
+  */
+  CheckOwnerCall: async function(contractinstance, account) {
+    return await contractinstance.methods.CheckOwner(account).call();
   },
 
   /*
@@ -202,9 +294,17 @@ const App = {
   to => address to approve (String)
   amount => amount to approve (Number)
   account => address approve to "to" address (String) 
+
+  return => 
+  (Boolean true : success, false : failed)
   */
   TokenApproveTx: async function(contractinstance, to, amount, account) {
-    return await contractinstance.methods.approve(to, amount).send({from:account}); 
+    return await contractinstance.methods.approve(to, amount).send({from:account})
+    .then(receipt => {
+      return (receipt.status==true);
+    }).catch(error => {
+      return false;
+    }); 
   },
 
   /*
@@ -222,6 +322,9 @@ const App = {
   UniswapFactoryAddr => Uniswap Factory contract address (set, String)
   UniswapExchangeAddr => Uniswap Dai Exchange contract address (set, String)
   account => address calling (owner, String)
+
+  return => 
+  (Boolean true : success, false : failed)
   */
   NewGrowdropTx: async function(
     contractinstance, 
@@ -237,28 +340,41 @@ const App = {
     UniswapFactoryAddr,
     UniswapExchangeAddr,
     account) {
-      return await contractinstance.methods.newGrowdrop(
-        tokenaddress,
-        ctokenaddress,
-        growdroptokenaddress,
-        beneficiaryaddress,
-        growdroptokenamount,
-        GrowdropApproximateStartTime,
-        GrowdropPeriod,
-        ToUniswapGrowdropTokenAmount,
-        ToUniswapInterestRate,
-        UniswapFactoryAddr,
-        UniswapExchangeAddr
-      ).send({from:account});
+    return await contractinstance.methods.newGrowdrop(
+      tokenaddress,
+      ctokenaddress,
+      growdroptokenaddress,
+      beneficiaryaddress,
+      growdroptokenamount,
+      GrowdropApproximateStartTime,
+      GrowdropPeriod,
+      ToUniswapGrowdropTokenAmount,
+      ToUniswapInterestRate,
+      UniswapFactoryAddr,
+      UniswapExchangeAddr
+    ).send({from:account})
+    .then(receipt => {
+      return (receipt.status==true);
+    }).catch(error => {
+      return false;
+    }); 
   },
 
   /*
   Start Growdrop Contract transaction (only beneficiary can)
   contractinstance => Growdrop contract instance
   account => address calling (beneficiary, String)
+
+  return => 
+  (Boolean true : success, false : failed)
   */
   StartGrowdropTx: async function(contractinstance, account) {
-    return await contractinstance.methods.StartGrowdrop().send({from:account});
+    return await contractinstance.methods.StartGrowdrop().send({from:account})
+    .then(receipt => {
+      return (receipt.status==true);
+    }).catch(error => {
+      return false;
+    }); 
   },
 
   /*
@@ -266,9 +382,17 @@ const App = {
   contractinstance => Growdrop contract instance
   amount => amount to add investing (Number)
   account => address adding (String)
+
+  return => 
+  (Boolean true : success, false : failed)
   */
   MintTx: async function(contractinstance, amount, account) {
-    return await contractinstance.methods.Mint(amount).send({from:account});
+    await contractinstance.methods.Mint(amount).send({from:account})
+    .then(receipt => {
+      return (receipt.status==true);
+    }).catch(error => {
+      return false;
+    }); 
   },
 
   /*
@@ -276,9 +400,17 @@ const App = {
   contractinstance => Growdrop contract instance
   amount => amount to subtract investing (Number)
   account => address subtracting (String)
+
+  return => 
+  (Boolean true : success, false : failed)
   */
   RedeemTx: async function(contractinstance, amount, account) {
-    return await contractinstance.methods.Redeem(amount).send({from:account});
+    return await contractinstance.methods.Redeem(amount).send({from:account})
+    .then(receipt => {
+      return (receipt.status==true);
+    }).catch(error => {
+      return false;
+    }); 
   },
 
   /*
@@ -287,9 +419,17 @@ const App = {
   contractinstance => Growdrop contract instance
   ToUniswap => true : add to uniswap, false : not add to uniswap (only for beneficiary, investor doesn't care, Boolean)
   account => address calling (String)
+
+  return => 
+  (Boolean true : success, false : failed)
   */
   WithdrawTx: async function(contractinstance, ToUniswap, account) {
-    return await contractinstance.methods.Withdraw(ToUniswap).send({from:account});
+    return await contractinstance.methods.Withdraw(ToUniswap).send({from:account})
+    .then(receipt => {
+      return (receipt.status==true);
+    }).catch(error => {
+      return false;
+    });
   },
 
   setElement_innerHTML: async function(element, text) {
@@ -583,7 +723,22 @@ const App = {
   setStatus: function(message) {
     const status = document.getElementById("status");
     status.innerHTML = message;
-  }
+  },
+
+  /*
+  torustest: async function() {
+    const torus = new Torus();
+    await torus.init({
+      network: {
+        host: 'rinkeby',
+        chainId: 4,
+        networkName: 'Rinkeby Test Network'
+      }
+    });
+    await torus.login();
+    App.web3 = await new Web3(torus.provider);
+  },
+  */
 };
 
 window.App = App;
@@ -603,3 +758,4 @@ window.addEventListener("load", function() {
 
   App.start();
 });
+
