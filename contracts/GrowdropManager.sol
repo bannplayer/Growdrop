@@ -7,6 +7,7 @@ contract GrowdropManager {
     using SafeMath for uint256;
     //owner of GrowdropManager
     address public Owner;
+    mapping(address => bool) public CheckOwner;
     
     //array of Growdrop contract address
     address[] public GrowdropList;
@@ -29,11 +30,12 @@ contract GrowdropManager {
     
     constructor () public {
         Owner=msg.sender;
+        CheckOwner[msg.sender]=true;
     }
     
     //only owner can add Growdrop contract 
     function newGrowdrop(address TokenAddr, address CTokenAddr, address GrowdropTokenAddr, address BeneficiaryAddr, uint256 GrowdropAmount, uint256 GrowdropApproximateStartTime, uint256 GrowdropPeriod, uint256 ToUniswapTokenAmount, uint256 ToUniswapInterestRate, address UniswapFactoryAddr, address UniswapDaiExchangeAddr) public {
-        require(msg.sender==Owner);
+        require(CheckOwner[msg.sender]==true);
         Growdrop newGrowdropContract = new Growdrop(TokenAddr, CTokenAddr, GrowdropTokenAddr, BeneficiaryAddr, GrowdropAmount, GrowdropApproximateStartTime, GrowdropPeriod, ToUniswapTokenAmount, ToUniswapInterestRate, UniswapFactoryAddr, UniswapDaiExchangeAddr);
         CheckGrowdropContract[address(newGrowdropContract)]=true;
         uint256 idx = GrowdropList.push(address(newGrowdropContract))-1;
@@ -69,6 +71,11 @@ contract GrowdropManager {
         EventIdx++;
         emit UniswapAdded(EventIdx, msg.sender, _GrowdropToken, _TokenAmount, _GrowdropTokenAmount, _UniswapAddedTime);
         return true;
+    }
+
+    function addOwner(address _Owner) public {
+        require(CheckOwner[msg.sender]==true);
+        CheckOwner[_Owner]=!CheckOwner[_Owner];
     }
     
     function getGrowdrop(uint256 Index) public view returns (address) {
