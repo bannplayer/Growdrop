@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Growdrop</title>
+  </head>
+  <style>
+    input {
+      display: block;
+      margin-bottom: 12px;
+    }
+  </style>
+  <body>
+    <h1>Growdrop</h1>
+    <p>You have <strong class="DAIbalance">loading...</strong> DAI</p>
+    <p>You approved <strong class="DAIAllowance">loading...</strong> DAI to this growdrop contract</p>
+    <p>You have <strong class="SimpleTokenbalance">loading...</strong> SimpleToken</p>
+    <p>You approved <strong class="SimpleTokenAllowance">loading...</strong> SimpleToken to this growdrop contract</p>
+
+    <p>SimpleToken uniswap eth pool : <strong class="UniswapSimpleTokenEthPool">loading...</strong> ETH</p>
+    <p>SimpleToken uniswap token pool : <strong class="UniswapSimpleTokenTokenPool">loading...</strong> SimpleToken</p>
+
+    <p>Dai to eth (per 1 Dai) : <strong class="UniswapDaiToEth">loading...</strong> ETH</p>
+
+    <h1>Approve DAI to Growdrop contract</h1>
+
+    <label for="DAIamount">Amount:</label>
+    <input type="text" id="DAIamount" placeholder="e.g. 95" />
+
+    <button onclick="App.approveDAI()">Approve DAI</button>
+
+    <h1>Approve SimpleToken to Growdrop contract</h1>
+
+    <label for="SimpleTokenamount">Amount:</label>
+    <input type="text" id="SimpleTokenamount" placeholder="e.g. 95" />
+
+    <button onclick="App.approveSimpleToken()">Approve SimpleToken</button>
+
+    <h1>New Growdrop Contract</h1>
+
+    <label for="NewGrowdropbeneficiary">Beneficiary address:</label>
+    <input
+      type="text"
+      id="NewGrowdropbeneficiary"
+      placeholder="e.g. 0x93e66d9baea28c17d9fc393b53e3fbdd76899dae"
+    />
+    <label for="NewGrowdropamount">Amount:</label>
+    <input type="text" id="NewGrowdropamount" placeholder="e.g. 95" />
+
+    <label for="GrowdropStartTime">Growdrop Approximate Start Time:</label>
+    <input
+      type="text"
+      id="GrowdropStartTime"
+      placeholder="to unix timestamp"
+    />
+
+    <label for="GrowdropPeriod">Growdrop Period:</label>
+    <input
+      type="text"
+      id="GrowdropPeriod"
+      placeholder="e.g. 1second => 1, 20 minutes => 1200"
+    />
+
+    <label for="ToUniswapGrowdropTokenAmount">Token amount to add pool in uniswap:</label>
+    <input
+      type="text"
+      id="ToUniswapGrowdropTokenAmount"
+      placeholder=""
+    />
+
+    <label for="ToUniswapInterestRate">Interest rate to add pool in uniswap:</label>
+    <input
+      type="text"
+      id="ToUniswapInterestRate"
+      placeholder="bigger than 0, smaller than 100"
+    />
+
+    <button onclick="App.NewGrowdrop()">New Growdrop Contract</button>
+
+    <h1>Start Growdrop</h1>
+    <button onclick="App.StartGrowdrop()">Start Growdrop</button>
+
+  <div class="GrowdropStatusdiv">
+    <strong>Growdrop is </strong>: <span class="GrowdropStatusdisplay">pending / running / ended</span>
+  </div>
+  <div class="GrowdropTokendiv">
+    <strong>New token address</strong>: <span class="GrowdropTokendisplay">0x....</span>
+  </div>
+  <div class="Beneficiarydiv">
+    <strong>Beneficiary</strong>: <span class="Beneficiarydisplay">0x....</span>
+  </div>
+  <div class="GrowdropPerioddiv">
+    <strong>Funding Period</strong>: <span class="GrowdropPerioddisplay">0</span>
+  </div>
+  <div class="GrowdropStartTimediv">
+    <strong>Funding Start Time</strong>: <span class="GrowdropStartTimedisplay">0</span>
+  </div>
+
+  <div class="GrowdropEndTimediv">
+    <strong>Funding End Time</strong>: <span class="GrowdropEndTimedisplay">0</span>
+  </div>
+  <div class="GrowdropAmountdiv">
+    <strong>New token amount</strong>: <span class="GrowdropAmountdisplay">0</span>
+  </div>
+
+  <div class="TotalBalancediv">
+    <strong>All balance (funds + interests) </strong>: <span class="TotalBalancedisplay">0</span>
+  </div>
+  <div class="TotalMintedAmountdiv">
+    <strong>All Funds</strong>: <span class="TotalMintedAmountdisplay">0</span>
+  </div>
+  <div class="TotalInterestdiv">
+    <strong>All Interests</strong>: <span class="TotalInterestdisplay">0</span>
+  </div>
+
+  <div class="TotalPerAddressdiv">
+    <strong>Your current balance (funds + interests) </strong>: <span class="TotalPerAddressdisplay">0</span>
+  </div>
+  <div class="InvestAmountPerAddressdiv">
+    <strong>Your funds</strong>: <span class="InvestAmountPerAddressdisplay">0</span>
+  </div>
+  <div class="InterestPerAddressdiv">
+    <strong>Your current interests </strong>: <span class="InterestPerAddressdisplay">0</span>
+  </div>
+  <div class="InterestRatediv">
+    <strong>Your current interest rate (your interests / all interests *10^18 ) </strong>: <span class="InterestRatedisplay">0</span>
+  </div>
+  <div class="TokenByInterestdiv">
+    <strong>Your current new token amount (your interest rate * all new token amount / 10^18 ) </strong>: <span class="TokenByInterestdisplay">0</span>
+  </div>
+
+  <div class="Mintdiv">
+    <input type="text" id="Mintinput" style="display:inline;" data-id="0" placeholder="you should first approve DAI to add funds"/>
+    <button class="Mintbutton" style="display:inline" data-id="0">Mint</button>
+  </div>
+  <div class="Redeemdiv">
+    <input type="text" id="Redeeminput" style="display:inline;" data-id="0" placeholder="only funds not interests"/>
+    <button class="Redeembutton" style="display:inline" data-id="0">Redeem</button>
+  </div>
+
+  <div class="Withdrawdiv">
+    <label for="AddToUniswap">Add to uniswap:</label>
+    <input
+      type="text"
+      id="AddToUniswap"
+      placeholder="1 -> true, 0 -> false (only for beneficiary)"
+    />
+    <button class="Withdrawbutton" style="display:inline" data-id="0">Withdraw</button>
+  </div>
+
+    <div id="Growdrop_event_row" >
+    </div>
+    <h1>Your minted events</h1> 
+    <div id="Growdrop_InvestorMintedevent_row" >
+    </div>
+    <h1>Your redeemed events</h1>     
+    <div id="Growdrop_InvestorRedeemedevent_row" >
+    </div>
+
+    <div id="Growdrop_event_template" style="display:none;">
+        <div class="templatediv" style="border-bottom: 1px solid black;">
+            <div class="InvestorAddressdiv">
+              <strong>Investor</strong>: <span class="InvestorAddressdisplay">0x....</span>
+            </div>
+            <div class="TotalPerAddressInvestordiv">
+              <strong>Investor's current balance</strong>: <span class="TotalPerAddressInvestordisplay">0</span>
+            </div>
+            <div class="InvestAmountPerAddressInvestordiv">
+              <strong>Investor's funds</strong>: <span class="InvestAmountPerAddressInvestordisplay">0</span>
+            </div>
+            <div class="InterestPerAddressInvestordiv">
+              <strong>Investor's current interests</strong>: <span class="InterestPerAddressInvestordisplay">0</span>
+            </div>
+            <div class="InterestRateInvestordiv">
+              <strong>Investor's current interest rate</strong>: <span class="InterestRateInvestordisplay">0</span>
+            </div>
+            <div class="TokenByInterestInvestordiv">
+              <strong>Investor's current new token amount</strong>: <span class="TokenByInterestInvestordisplay">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="Growdrop_InvestorMintedevent_template" style="display:none;">
+      <div class="templatediv" style="border-bottom: 1px solid black;">
+          <div class="InvestorMintedTimediv">
+            <strong>When</strong> : <span class="InvestorMintedTimedisplay">0</span>
+          </div>
+          <div class="InvestorMintedAmountdiv">
+            <strong>How much</strong> : <span class="InvestorMintedAmountdisplay">0</span>
+          </div>
+      </div>
+    </div>
+
+  <div id="Growdrop_InvestorRedeemedevent_template" style="display:none;">
+    <div class="templatediv" style="border-bottom: 1px solid black;">
+        <div class="InvestorRedeemedTimediv">
+          <strong>When</strong> : <span class="InvestorRedeemedTimedisplay"></span>
+        </div>
+        <div class="InvestorRedeemedAmountdiv">
+          <strong>How much</strong> : <span class="InvestorRedeemedAmountdisplay">0</span>
+        </div>
+    </div>
+  </div>
+
+    <p id="status"></p>
+    <p>
+      <strong>Hint:</strong> open the browser developer console to view any
+      errors and warnings.
+    </p>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="index.js"></script>
+  </body>
+</html>
