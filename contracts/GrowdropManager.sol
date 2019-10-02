@@ -35,7 +35,7 @@ contract GrowdropManager {
     
     //only owner can add Growdrop contract 
     function newGrowdrop(address TokenAddr, address CTokenAddr, address GrowdropTokenAddr, address BeneficiaryAddr, uint256 GrowdropAmount, uint256 GrowdropApproximateStartTime, uint256 GrowdropPeriod, uint256 ToUniswapTokenAmount, uint256 ToUniswapInterestRate, address UniswapFactoryAddr, address UniswapDaiExchangeAddr) public {
-        require(CheckOwner[msg.sender]==true);
+        require(CheckOwner[msg.sender]);
         Growdrop newGrowdropContract = new Growdrop(TokenAddr, CTokenAddr, GrowdropTokenAddr, BeneficiaryAddr, GrowdropAmount, GrowdropApproximateStartTime, GrowdropPeriod, ToUniswapTokenAmount, ToUniswapInterestRate, UniswapFactoryAddr, UniswapDaiExchangeAddr);
         CheckGrowdropContract[address(newGrowdropContract)]=true;
         uint256 idx = GrowdropList.push(address(newGrowdropContract))-1;
@@ -44,13 +44,13 @@ contract GrowdropManager {
     }
     
     function emitGrowdropActionEvent(bool ActionIdx, uint256 ActionTime) public returns (bool) {
-        require(CheckGrowdropContract[msg.sender]==true);
+        require(CheckGrowdropContract[msg.sender]);
         EventIdx++;
         emit GrowdropAction(EventIdx, msg.sender, ActionIdx, ActionTime);
         return true;
     }
     function emitUserActionEvent(address From, uint256 Amount, uint256 ActionTime, uint256 ActionIdx, uint256 WithdrawSub) public returns (bool) {
-        require(CheckGrowdropContract[msg.sender]==true);
+        require(CheckGrowdropContract[msg.sender]);
         EventIdx++;
         if(ActionIdx==0) {
             TotalUserInvestedAmount[From]=TotalUserInvestedAmount[From].add(Amount);
@@ -67,14 +67,14 @@ contract GrowdropManager {
     }
     
     function emitUniswapAddedEvent(address _GrowdropToken, uint256 _TokenAmount, uint256 _GrowdropTokenAmount, uint256 _UniswapAddedTime) public returns (bool) {
-        require(CheckGrowdropContract[msg.sender]==true);
+        require(CheckGrowdropContract[msg.sender]);
         EventIdx++;
         emit UniswapAdded(EventIdx, msg.sender, _GrowdropToken, _TokenAmount, _GrowdropTokenAmount, _UniswapAddedTime);
         return true;
     }
 
     function addOwner(address _Owner) public {
-        require(CheckOwner[msg.sender]==true);
+        require(CheckOwner[msg.sender]);
         CheckOwner[_Owner]=!CheckOwner[_Owner];
     }
     
