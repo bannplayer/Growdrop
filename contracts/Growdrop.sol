@@ -24,7 +24,7 @@ contract Growdrop {
     address public Beneficiary;
     
     //ctoken balanceOf per address
-    mapping(address => uint256) public TokenPerAddress;
+    mapping(address => uint256) public CTokenPerAddress;
     
     //minted token balance per address
     mapping(address => uint256) public InvestAmountPerAddress;
@@ -43,6 +43,7 @@ contract Growdrop {
     
     //total minted token balance
     uint256 public TotalMintedAmount;
+    uint256 public TotalCTokenAmount;
     
     //for calculation
     uint256 constant ConstVal=10**18;
@@ -81,7 +82,7 @@ contract Growdrop {
         Beneficiary = BeneficiaryAddr;
         GrowdropAmount=_GrowdropAmount;
         GrowdropStartTime=GrowdropApproximateStartTime;
-        GrowdropEndTime=GrowdropStartTime+GrowdropPeriod;
+        GrowdropEndTime=GrowdropStartTime.add(GrowdropPeriod);
         manager=GrowdropManager(msg.sender);
         UniswapFactory = UniswapFactoryInterface(UniswapFactoryAddr);
         UniswapDaiExchange=UniswapExchangeInterface(UniswapDaiExchangeAddr);
@@ -94,11 +95,11 @@ contract Growdrop {
     //beneficiary will send tokens to give investors and Growdrop contract get tokens 
     function StartGrowdrop() public returns (bool) {
         require(msg.sender==Beneficiary);
-        require(GrowdropStart==false);
+        require(!GrowdropStart);
         GrowdropStart=true;
         
         //need to approve from msg.sender to this contract first
-        require(GrowdropToken.transferFrom(msg.sender, address(this), GrowdropAmount+ToUniswapTokenAmount)==true);
+        require(GrowdropToken.transferFrom(msg.sender, address(this), GrowdropAmount.add(ToUniswapTokenAmount)));
         
         uint256 period = GrowdropEndTime.sub(GrowdropStartTime);
 
@@ -106,21 +107,21 @@ contract Growdrop {
         GrowdropStartTime=now;
         
         //Growdrop ends now+GrowdropTime
-        GrowdropEndTime=now + period;
+        GrowdropEndTime=now.add(period);
         
         //event
-        require(manager.emitGrowdropActionEvent(false, GrowdropStartTime)==true);
+        require(manager.emitGrowdropActionEvent(false, GrowdropStartTime));
         return true;
     }
     
     //investor mint token and Growdrop contract gets interests (not only once, can mint over time)
     function Mint(uint256 Amount) public returns (bool) {
-        require(GrowdropStart==true);
+        require(GrowdropStart);
         require(now<GrowdropEndTime);
         require(msg.sender!=Beneficiary);
         
         //need to approve from msg.sender to this contract first
-        require(Token.transferFrom(msg.sender, address(this), Amount)==true);
+        require(Token.transferFrom(msg.sender, address(this), Amount));
         
         //investor's minted token balance increases 
         InvestAmountPerAddress[msg.sender]=InvestAmountPerAddress[msg.sender].add(Amount);
@@ -132,28 +133,29 @@ contract Growdrop {
         uint256 beforeBalance = CToken.balanceOf(address(this));
         
         //first approve to mint
-        require(Token.approve(address(CToken), Amount)==true);
+        require(Token.approve(address(CToken), Amount));
         
         //mint ctoken ( ex) compound mint )  
         require(CToken.mint(Amount)==0);
         
-        //Growdrop contract's balanceOf ctoken after mint
-        uint256 currentBalance = CToken.balanceOf(address(this));
+        
+        uint256 BalanceDif = CToken.balanceOf(address(this)).sub(beforeBalance);
         
         //investor's balanceOf ctoken increases
-        TokenPerAddress[msg.sender]=TokenPerAddress[msg.sender].add(currentBalance.sub(beforeBalance));
+        CTokenPerAddress[msg.sender]=CTokenPerAddress[msg.sender].add(BalanceDif);
+        TotalCTokenAmount=TotalCTokenAmount.add(BalanceDif);
         
         //event
-        if(manager.CheckUserJoinedGrowdrop(address(this),msg.sender)==false) {
-            require(manager.emitUserActionEvent(msg.sender, 0, now, 4, 0)==true);
+        if(!manager.CheckUserJoinedGrowdrop(address(this),msg.sender)) {
+            require(manager.emitUserActionEvent(msg.sender, 0, now, 4, 0));
         }
-        require(manager.emitUserActionEvent(msg.sender, Amount, now, 0, 0)==true);
+        require(manager.emitUserActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 0, 0));
         return true;
     }
     
     //investor redeem token and Growdrop contract gives token to investor, investor cannot get interests (not only once, can redeem over time)
     function Redeem(uint256 Amount) public returns (bool) {
-        require(GrowdropStart==true);
+        require(GrowdropStart);
         require(now<GrowdropEndTime);
         require(msg.sender!=Beneficiary);
         
@@ -169,26 +171,25 @@ contract Growdrop {
         uint256 beforeBalance = CToken.balanceOf(address(this));
         
         //redeem ctoken ( ex) compound redeemUnderlying )
-        require(CToken.redeemUnderlying(Amount)==0, "redeem from CToken failed");
+        require(CToken.redeemUnderlying(Amount)==0);
         
         //transfer redeemed token balance to investor
-        require(Token.transfer(msg.sender, Amount)==true);
+        require(Token.transfer(msg.sender, Amount));
         
-        //Growdrop contract's balanceOf ctoken after redeem
-        uint256 currentBalance = CToken.balanceOf(address(this));
-        
+        uint256 BalanceDif = beforeBalance.sub(CToken.balanceOf(address(this)));
         //investor's balanceOf ctoken decreases
-        TokenPerAddress[msg.sender]=TokenPerAddress[msg.sender].sub(beforeBalance.sub(currentBalance));
+        CTokenPerAddress[msg.sender]=CTokenPerAddress[msg.sender].sub(BalanceDif);
+        TotalCTokenAmount=TotalCTokenAmount.sub(BalanceDif);
         
         //event
-        require(manager.emitUserActionEvent(msg.sender, Amount, now, 1, 0)==true);
+        require(manager.emitUserActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 1, 0));
         return true;
     }
     
     //after Growdrop, anyone can withdraw all interests from Growdrop contract to beneficiary
     function Withdraw(bool ToUniswap) public returns (bool) {
         //beneficiary can get interests only once 
-        require(WithdrawOver[msg.sender]==false);
+        require(!WithdrawOver[msg.sender]);
         
         //change state
         WithdrawOver[msg.sender]=true;
@@ -200,59 +201,65 @@ contract Growdrop {
             if(ToUniswap) {
                 //transfer all interests to beneficiary
                 uint256 ToUniswapInterestRateCalculated = TotalInterestOver.mul(ToUniswapInterestRate).div(100);
-                require(Token.transfer(Beneficiary, TotalInterestOver.sub(ToUniswapInterestRateCalculated).sub(OwnerFee))==true);
+                require(Token.transfer(Beneficiary, TotalInterestOver.sub(ToUniswapInterestRateCalculated).sub(OwnerFee)));
             
-                if(AddToUniswap(ToUniswapInterestRateCalculated, ToUniswapTokenAmount)==false) {
-                    require(sendTokenInWithdraw(Beneficiary, ToUniswapInterestRateCalculated, ToUniswapTokenAmount)==true);
+                if(!AddToUniswap(ToUniswapInterestRateCalculated, ToUniswapTokenAmount)) {
+                    sendTokenInWithdraw(Beneficiary, ToUniswapInterestRateCalculated, ToUniswapTokenAmount);
                 }
-                require(manager.emitUniswapAddedEvent(address(GrowdropToken), ToUniswapInterestRateCalculated, ToUniswapTokenAmount, now)==true);
+                require(manager.emitUniswapAddedEvent(address(GrowdropToken), ToUniswapInterestRateCalculated, ToUniswapTokenAmount, now));
             } else {
-                require(sendTokenInWithdraw(Beneficiary, TotalInterestOver.sub(OwnerFee), ToUniswapTokenAmount)==true);
+                sendTokenInWithdraw(Beneficiary, TotalInterestOver.sub(OwnerFee), ToUniswapTokenAmount);
             }
-            require(Token.transfer(manager.Owner(), OwnerFee)==true);
+            require(Token.transfer(manager.Owner(), OwnerFee));
             
             //event
-            require(manager.emitUserActionEvent(msg.sender, 0, now, 2, 0)==true);
+            require(manager.emitUserActionEvent(msg.sender, 0, now, 2, 0));
         } else {
-            require(sendTokenInWithdraw(msg.sender, InvestAmountPerAddress[msg.sender], TokenByInterest(msg.sender))==true);
+            sendTokenInWithdraw(msg.sender, InvestAmountPerAddress[msg.sender], TokenByInterest(msg.sender));
             //event
-            require(manager.emitUserActionEvent(msg.sender, TokenByInterest(msg.sender), now, 3, InvestAmountPerAddress[msg.sender])==true);
+            require(manager.emitUserActionEvent(msg.sender, TokenByInterest(msg.sender), now, 3, InvestAmountPerAddress[msg.sender]));
         }
         return true;
     }
     
-    function sendTokenInWithdraw(address To, uint256 TokenAmount, uint256 GrowdropTokenAmount) private returns (bool) {
-        require(Token.transfer(To, TokenAmount)==true);
-        require(GrowdropToken.transfer(To, GrowdropTokenAmount)==true);
-        return true;
+    function sendTokenInWithdraw(address To, uint256 TokenAmount, uint256 GrowdropTokenAmount) private {
+        require(Token.transfer(To, TokenAmount));
+        require(GrowdropToken.transfer(To, GrowdropTokenAmount));
     }
     
     function EndGrowdrop() public {
-        require(GrowdropStart==true && GrowdropEndTime<=now);
+        require(GrowdropStart && GrowdropEndTime<=now);
         if(!GrowdropOver) {
             
             //change state
             GrowdropOver=true;
+            address owner=manager.Owner();
+            
+            require(CToken.transfer(owner, CToken.balanceOf(address(this)).sub(TotalCTokenAmount)));
             
             //redeem all ctoken balance of Growdrop contract, and there will be no more interests from Growdrop contract
-            require(CToken.redeem(CToken.balanceOf(address(this)))==0);
+            require(CToken.redeem(TotalCTokenAmount)==0);
             
             //store last exchangeRateStored to calculate
             ExchangeRateOver = CToken.exchangeRateStored();
             
+            uint256 calculatedBalance = MulAndDiv(TotalCTokenAmount, ExchangeRateOver, ConstVal);
+            
+            require(Token.transfer(owner, Token.balanceOf(address(this)).sub(calculatedBalance)));
             //store last interests to calculate
-            TotalInterestOver = Token.balanceOf(address(this)).sub(TotalMintedAmount);
+            TotalInterestOver = calculatedBalance.sub(TotalMintedAmount);
             
             //event
-            require(manager.emitGrowdropActionEvent(true, now)==true);
+            require(manager.emitGrowdropActionEvent(true, now));
         }
     }
     
     function AddToUniswap(uint256 daiAmount, uint256 newTokenAmount) private returns (bool) {
-        UniswapExchangeInterface newTokenExchange = UniswapExchangeInterface(UniswapFactory.getExchange(address(GrowdropToken))); 
-        if(address(newTokenExchange)==address(0x0)) {
-            newTokenExchange = UniswapExchangeInterface(UniswapFactory.createExchange(address(GrowdropToken)));
+        address newTokenExchangeAddr = UniswapFactory.getExchange(address(GrowdropToken)); 
+        if(newTokenExchangeAddr==address(0x0)) {
+            newTokenExchangeAddr = UniswapFactory.createExchange(address(GrowdropToken));
         }
+        UniswapExchangeInterface newTokenExchange = UniswapExchangeInterface(newTokenExchangeAddr);
         
         uint256 daiToEthAmount = UniswapDaiExchange.getTokenToEthInputPrice(daiAmount);
         if(daiToEthAmount<1000000000) {
@@ -269,45 +276,43 @@ contract Growdrop {
             uint256 eth_reserve = address(newTokenExchange).balance;
             uint256 token_reserve = GrowdropToken.balanceOf(address(newTokenExchange));
             uint256 total_liquidity = newTokenExchange.totalSupply();
-            max_token = daiToEthAmount.mul(token_reserve).div(eth_reserve).add(1);
-            min_liquidity = daiToEthAmount.mul(total_liquidity).div(eth_reserve);
+            max_token = MulAndDiv(daiToEthAmount, token_reserve, eth_reserve).add(1);
+            min_liquidity = MulAndDiv(daiToEthAmount, total_liquidity, eth_reserve);
             if(max_token>newTokenAmount) {
                 return addLiquidityAndTransferLower(eth_reserve,token_reserve,total_liquidity,newTokenAmount,daiAmount,newTokenExchange);
             } else {
                 changeDaiToEth(daiAmount, daiToEthAmount);
                 addLiquidityAndTransfer(daiToEthAmount,min_liquidity,max_token,newTokenExchange);
-                require(GrowdropToken.transfer(Beneficiary, newTokenAmount-max_token)==true);
+                require(GrowdropToken.transfer(Beneficiary, newTokenAmount-max_token));
             }
         }
         return true;
     }
     
     function addLiquidityAndTransferLower(uint256 eth_reserve, uint256 token_reserve, uint256 total_liquidity, uint256 newTokenAmount, uint256 daiAmount, UniswapExchangeInterface tokenExchange) private returns (bool) {
-        uint256 lowerEthAmount = newTokenAmount.sub(1).mul(eth_reserve).div(token_reserve);
+        uint256 lowerEthAmount = MulAndDiv(newTokenAmount.sub(1), eth_reserve, token_reserve);
         if(lowerEthAmount<1000000000) {
             return false;
         }
-        uint256 max_token = lowerEthAmount.mul(token_reserve).div(eth_reserve).add(1);
-        uint256 min_liquidity = lowerEthAmount.mul(total_liquidity).div(eth_reserve);
+        uint256 max_token = MulAndDiv(lowerEthAmount, token_reserve, eth_reserve).add(1);
+        uint256 min_liquidity = MulAndDiv(lowerEthAmount, total_liquidity, eth_reserve);
                 
         uint256 lowerDaiAmount = UniswapDaiExchange.getTokenToEthOutputPrice(lowerEthAmount);
         changeDaiToEth(lowerDaiAmount, lowerEthAmount);
         addLiquidityAndTransfer(lowerEthAmount, min_liquidity, max_token, tokenExchange);
-        require(sendTokenInWithdraw(Beneficiary, daiAmount.sub(lowerDaiAmount), newTokenAmount.sub(max_token))==true);
+        sendTokenInWithdraw(Beneficiary, daiAmount.sub(lowerDaiAmount), newTokenAmount.sub(max_token));
         return true;
     }
     
-    function addLiquidityAndTransfer(uint256 ethAmount, uint256 liquidity, uint256 tokenAmount, UniswapExchangeInterface tokenExchange) private returns (uint256) {
-        require(GrowdropToken.approve(address(tokenExchange),tokenAmount)==true);
+    function addLiquidityAndTransfer(uint256 ethAmount, uint256 liquidity, uint256 tokenAmount, UniswapExchangeInterface tokenExchange) private {
+        require(GrowdropToken.approve(address(tokenExchange),tokenAmount));
         require(liquidity==tokenExchange.addLiquidity.value(ethAmount)(liquidity,tokenAmount,1739591241));
-        require(tokenExchange.transfer(Beneficiary, liquidity)==true);
-        return liquidity;
+        require(tokenExchange.transfer(Beneficiary, liquidity));
     }
     
-    function changeDaiToEth(uint256 daiAmount, uint256 daiToEthAmount) private returns (uint256) {
-        require(Token.approve(address(UniswapDaiExchange), daiAmount)==true);
+    function changeDaiToEth(uint256 daiAmount, uint256 daiToEthAmount) private {
+        require(Token.approve(address(UniswapDaiExchange), daiAmount));
         require(daiToEthAmount==UniswapDaiExchange.tokenToEthTransferInput(daiAmount, daiToEthAmount, 1739591241, address(this)));
-        return daiToEthAmount;
     }
     
     
@@ -316,45 +321,45 @@ contract Growdrop {
     //Growdrop contract's total balance ( minted token balance + interests,  ex) compound balanceOfUnderlying )
     //ctoken balanceOf Growdrop contract * ctoken exchangeRateStored / 10^18
     function TotalBalance() public view returns (uint256) {
-        return CToken.balanceOf(address(this)).mul(CToken.exchangeRateStored()).div(ConstVal);
+        if(GrowdropOver) {
+            return TotalInterestOver.add(TotalMintedAmount);
+        }
+        return MulAndDiv(TotalCTokenAmount, CToken.exchangeRateStored(), ConstVal);
     }
     
     //investor's total balance ( minted token balance + interests, ex) compound balanceOfUnderlying )
     //ctoken balanceOf investor * ctoken exchangeRateStored / 10^18
     function TotalPerAddress(address Investor) public view returns (uint256) {
         if(GrowdropOver) {
-            return TokenPerAddress[Investor].mul(ExchangeRateOver).div(ConstVal);
+            return MulAndDiv(CTokenPerAddress[Investor], ExchangeRateOver, ConstVal);
         }
-        return TokenPerAddress[Investor].mul(CToken.exchangeRateStored()).div(ConstVal);
+        return MulAndDiv(CTokenPerAddress[Investor], CToken.exchangeRateStored(), ConstVal);
     }
     
     //rate of investor's interests calculated by Growdrop contract's interests
     //investor's interests * 10^18 / Growdrop contract's interests
     function InterestRate(address Investor) public view returns (uint256) {
         if(GrowdropOver) {
-            return TotalPerAddress(Investor).sub(InvestAmountPerAddress[Investor]).mul(ConstVal).div(TotalInterestOver);
+            return MulAndDiv(TotalPerAddress(Investor).sub(InvestAmountPerAddress[Investor]), ConstVal, TotalInterestOver);
         }
-        return TotalPerAddress(Investor).sub(InvestAmountPerAddress[Investor]).mul(ConstVal).div(TotalBalance().sub(TotalMintedAmount));
+        return MulAndDiv(TotalPerAddress(Investor).sub(InvestAmountPerAddress[Investor]), ConstVal, TotalBalance().sub(TotalMintedAmount));
     }
     
     //beneficiary's token balance that investor can get calculated by rate of investor's interests
     //rate of investor's interests * beneficiary's all token balance / 10^18 
     function TokenByInterest(address Investor) public view returns (uint256) {
-        return InterestRate(Investor).mul(GrowdropAmount).div(ConstVal);
+        return MulAndDiv(InterestRate(Investor), GrowdropAmount, ConstVal);
+    }
+    
+    function MulAndDiv(uint256 a, uint256 b, uint256 c) private pure returns (uint256) {
+        return a.mul(b).div(c);
     }
     
     function getGrowdropData() public view returns (address, address, uint256, uint256, uint256, uint256, uint256, bool, bool, uint256, uint256) {
-        if(GrowdropOver) {
-            return (address(GrowdropToken), Beneficiary, GrowdropAmount, GrowdropStartTime, GrowdropEndTime, TotalInterestOver.add(TotalMintedAmount), TotalMintedAmount, GrowdropOver, GrowdropStart, ToUniswapTokenAmount, ToUniswapInterestRate);
-        } else {
-            return (address(GrowdropToken), Beneficiary, GrowdropAmount, GrowdropStartTime, GrowdropEndTime, TotalBalance(), TotalMintedAmount, GrowdropOver, GrowdropStart, ToUniswapTokenAmount, ToUniswapInterestRate);
-        }
+        return (address(GrowdropToken), Beneficiary, GrowdropAmount, GrowdropStartTime, GrowdropEndTime, TotalBalance(), TotalMintedAmount, GrowdropOver, GrowdropStart, ToUniswapTokenAmount, ToUniswapInterestRate);
     }
     
     function getUserData() public view returns (uint256, uint256, uint256, uint256, uint256) {
-        if(GrowdropOver) {
-            return (InvestAmountPerAddress[msg.sender], TotalPerAddress(msg.sender), TotalPerAddress(msg.sender).sub(InvestAmountPerAddress[msg.sender]), InterestRate(msg.sender), TokenByInterest(msg.sender));
-        }
         return (InvestAmountPerAddress[msg.sender], TotalPerAddress(msg.sender), TotalPerAddress(msg.sender).sub(InvestAmountPerAddress[msg.sender]), InterestRate(msg.sender), TokenByInterest(msg.sender));
     }
     
