@@ -10,5 +10,6 @@ contract CTokenInterface {
     function balanceOf(address owner) external view returns (uint256 balance);
 
     function exchangeRateStored() public view returns (uint);
-
+    
+    function transfer(address dst, uint256 amount) external returns (bool);
 }
