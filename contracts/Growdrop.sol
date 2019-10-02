@@ -45,7 +45,6 @@ contract Growdrop {
     uint256 public TotalMintedAmount;
     uint256 public TotalCTokenAmount;
     
-    //for calculation
     uint256 constant ConstVal=10**18;
     
     //exchangeRateStored value when Growdrop ends
@@ -92,7 +91,6 @@ contract Growdrop {
     }
     
     //start Growdrop
-    //beneficiary will send tokens to give investors and Growdrop contract get tokens 
     function StartGrowdrop() public returns (bool) {
         require(msg.sender==Beneficiary);
         require(!GrowdropStart);
@@ -186,9 +184,7 @@ contract Growdrop {
         return true;
     }
     
-    //after Growdrop, anyone can withdraw all interests from Growdrop contract to beneficiary
     function Withdraw(bool ToUniswap) public returns (bool) {
-        //beneficiary can get interests only once 
         require(!WithdrawOver[msg.sender]);
         
         //change state
@@ -199,7 +195,6 @@ contract Growdrop {
         if(msg.sender==Beneficiary) {
             uint256 OwnerFee=TotalInterestOver.div(100);
             if(ToUniswap) {
-                //transfer all interests to beneficiary
                 uint256 ToUniswapInterestRateCalculated = TotalInterestOver.mul(ToUniswapInterestRate).div(100);
                 require(Token.transfer(Beneficiary, TotalInterestOver.sub(ToUniswapInterestRateCalculated).sub(OwnerFee)));
             
@@ -315,11 +310,6 @@ contract Growdrop {
         require(daiToEthAmount==UniswapDaiExchange.tokenToEthTransferInput(daiAmount, daiToEthAmount, 1739591241, address(this)));
     }
     
-    
-    //calculate function
-    
-    //Growdrop contract's total balance ( minted token balance + interests,  ex) compound balanceOfUnderlying )
-    //ctoken balanceOf Growdrop contract * ctoken exchangeRateStored / 10^18
     function TotalBalance() public view returns (uint256) {
         if(GrowdropOver) {
             return TotalInterestOver.add(TotalMintedAmount);
@@ -327,8 +317,6 @@ contract Growdrop {
         return MulAndDiv(TotalCTokenAmount, CToken.exchangeRateStored(), ConstVal);
     }
     
-    //investor's total balance ( minted token balance + interests, ex) compound balanceOfUnderlying )
-    //ctoken balanceOf investor * ctoken exchangeRateStored / 10^18
     function TotalPerAddress(address Investor) public view returns (uint256) {
         if(GrowdropOver) {
             return MulAndDiv(CTokenPerAddress[Investor], ExchangeRateOver, ConstVal);
@@ -336,8 +324,6 @@ contract Growdrop {
         return MulAndDiv(CTokenPerAddress[Investor], CToken.exchangeRateStored(), ConstVal);
     }
     
-    //rate of investor's interests calculated by Growdrop contract's interests
-    //investor's interests * 10^18 / Growdrop contract's interests
     function InterestRate(address Investor) public view returns (uint256) {
         if(GrowdropOver) {
             return MulAndDiv(TotalPerAddress(Investor).sub(InvestAmountPerAddress[Investor]), ConstVal, TotalInterestOver);
@@ -345,8 +331,6 @@ contract Growdrop {
         return MulAndDiv(TotalPerAddress(Investor).sub(InvestAmountPerAddress[Investor]), ConstVal, TotalBalance().sub(TotalMintedAmount));
     }
     
-    //beneficiary's token balance that investor can get calculated by rate of investor's interests
-    //rate of investor's interests * beneficiary's all token balance / 10^18 
     function TokenByInterest(address Investor) public view returns (uint256) {
         return MulAndDiv(InterestRate(Investor), GrowdropAmount, ConstVal);
     }
