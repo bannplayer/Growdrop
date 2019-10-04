@@ -30,9 +30,9 @@ contract GrowdropManager {
         CheckOwner[msg.sender]=true;
     }
     
-    function newGrowdrop(address TokenAddr, address CTokenAddr, address GrowdropTokenAddr, address BeneficiaryAddr, uint256 GrowdropAmount, uint256 GrowdropApproximateStartTime, uint256 GrowdropPeriod, uint256 ToUniswapTokenAmount, uint256 ToUniswapInterestRate, address UniswapFactoryAddr, address UniswapDaiExchangeAddr) public {
+    function newGrowdrop(address TokenAddr, address CTokenAddr, address GrowdropTokenAddr, address BeneficiaryAddr, uint256 GrowdropAmount, uint256 GrowdropApproximateStartTime, uint256 GrowdropPeriod, uint256 ToUniswapTokenAmount, uint256 ToUniswapInterestRate, address UniswapFactoryAddr, address UniswapTokenExchangeAddr) public {
         require(CheckOwner[msg.sender]);
-        Growdrop newGrowdropContract = new Growdrop(TokenAddr, CTokenAddr, GrowdropTokenAddr, BeneficiaryAddr, GrowdropAmount, GrowdropApproximateStartTime, GrowdropPeriod, ToUniswapTokenAmount, ToUniswapInterestRate, UniswapFactoryAddr, UniswapDaiExchangeAddr);
+        Growdrop newGrowdropContract = new Growdrop(TokenAddr, CTokenAddr, GrowdropTokenAddr, BeneficiaryAddr, GrowdropAmount, GrowdropApproximateStartTime, GrowdropPeriod, ToUniswapTokenAmount, ToUniswapInterestRate, UniswapFactoryAddr, UniswapTokenExchangeAddr);
         CheckGrowdropContract[address(newGrowdropContract)]=true;
         uint256 idx = GrowdropList.push(address(newGrowdropContract))-1;
         EventIdx++;
