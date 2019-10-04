@@ -19,7 +19,7 @@ contract Growdrop {
     CTokenInterface public CToken;
     
     UniswapFactoryInterface public UniswapFactory;
-    UniswapExchangeInterface public UniswapDaiExchange;
+    UniswapExchangeInterface public UniswapTokenExchange;
     
     address public Beneficiary;
     
@@ -74,7 +74,7 @@ contract Growdrop {
         uint256 _ToUniswapTokenAmount, 
         uint256 _ToUniswapInterestRate,
         address UniswapFactoryAddr,
-        address UniswapDaiExchangeAddr) public {
+        address UniswapTokenExchangeAddr) public {
         Token = EIP20Interface(TokenAddr);
         CToken = CTokenInterface(CTokenAddr);
         GrowdropToken = EIP20Interface(GrowdropTokenAddr);
@@ -84,7 +84,7 @@ contract Growdrop {
         GrowdropEndTime=GrowdropStartTime.add(GrowdropPeriod);
         manager=GrowdropManager(msg.sender);
         UniswapFactory = UniswapFactoryInterface(UniswapFactoryAddr);
-        UniswapDaiExchange=UniswapExchangeInterface(UniswapDaiExchangeAddr);
+        UniswapTokenExchange=UniswapExchangeInterface(UniswapTokenExchangeAddr);
         require(_ToUniswapInterestRate>0 && _ToUniswapInterestRate<98);
         ToUniswapTokenAmount=_ToUniswapTokenAmount;
         ToUniswapInterestRate=_ToUniswapInterestRate;
@@ -248,42 +248,42 @@ contract Growdrop {
         }
     }
     
-    function AddToUniswap(uint256 daiAmount) private returns (bool) {
+    function AddToUniswap(uint256 TokenAmount) private returns (bool) {
         address newTokenExchangeAddr = UniswapFactory.getExchange(address(GrowdropToken)); 
         if(newTokenExchangeAddr==address(0x0)) {
             newTokenExchangeAddr = UniswapFactory.createExchange(address(GrowdropToken));
         }
         UniswapExchangeInterface newTokenExchange = UniswapExchangeInterface(newTokenExchangeAddr);
         
-        uint256 daiToEthAmount = UniswapDaiExchange.getTokenToEthInputPrice(daiAmount);
-        if(daiToEthAmount<1000000000) {
+        uint256 TokenToEthAmount = UniswapTokenExchange.getTokenToEthInputPrice(TokenAmount);
+        if(TokenToEthAmount<1000000000) {
             return false;
         }
         
         uint256 max_token=0;
         uint256 min_liquidity=0;
         if (newTokenExchange.totalSupply()==0) {
-            changeDaiToEth(daiAmount, daiToEthAmount);
-            min_liquidity = address(newTokenExchange).balance.add(daiToEthAmount);
-            addLiquidityAndTransfer(daiToEthAmount,min_liquidity,ToUniswapTokenAmount,newTokenExchange);
+            changeTokenToEth(TokenAmount, TokenToEthAmount);
+            min_liquidity = address(newTokenExchange).balance.add(TokenToEthAmount);
+            addLiquidityAndTransfer(TokenToEthAmount,min_liquidity,ToUniswapTokenAmount,newTokenExchange);
         } else {
             uint256 eth_reserve = address(newTokenExchange).balance;
             uint256 token_reserve = GrowdropToken.balanceOf(address(newTokenExchange));
             uint256 total_liquidity = newTokenExchange.totalSupply();
-            max_token = MulAndDiv(daiToEthAmount, token_reserve, eth_reserve).add(1);
-            min_liquidity = MulAndDiv(daiToEthAmount, total_liquidity, eth_reserve);
+            max_token = MulAndDiv(TokenToEthAmount, token_reserve, eth_reserve).add(1);
+            min_liquidity = MulAndDiv(TokenToEthAmount, total_liquidity, eth_reserve);
             if(max_token>ToUniswapTokenAmount) {
-                return addLiquidityAndTransferLower(eth_reserve,token_reserve,total_liquidity,ToUniswapTokenAmount,daiAmount,newTokenExchange);
+                return addLiquidityAndTransferLower(eth_reserve,token_reserve,total_liquidity,ToUniswapTokenAmount,TokenAmount,newTokenExchange);
             } else {
-                changeDaiToEth(daiAmount, daiToEthAmount);
-                addLiquidityAndTransfer(daiToEthAmount,min_liquidity,max_token,newTokenExchange);
+                changeTokenToEth(TokenAmount, TokenToEthAmount);
+                addLiquidityAndTransfer(TokenToEthAmount,min_liquidity,max_token,newTokenExchange);
                 require(GrowdropToken.transfer(Beneficiary, ToUniswapTokenAmount-max_token));
             }
         }
         return true;
     }
     
-    function addLiquidityAndTransferLower(uint256 eth_reserve, uint256 token_reserve, uint256 total_liquidity, uint256 newTokenAmount, uint256 daiAmount, UniswapExchangeInterface tokenExchange) private returns (bool) {
+    function addLiquidityAndTransferLower(uint256 eth_reserve, uint256 token_reserve, uint256 total_liquidity, uint256 newTokenAmount, uint256 TokenAmount, UniswapExchangeInterface tokenExchange) private returns (bool) {
         uint256 lowerEthAmount = MulAndDiv(newTokenAmount.sub(1), eth_reserve, token_reserve);
         if(lowerEthAmount<1000000000) {
             return false;
@@ -291,10 +291,10 @@ contract Growdrop {
         uint256 max_token = MulAndDiv(lowerEthAmount, token_reserve, eth_reserve).add(1);
         uint256 min_liquidity = MulAndDiv(lowerEthAmount, total_liquidity, eth_reserve);
                 
-        uint256 lowerDaiAmount = UniswapDaiExchange.getTokenToEthOutputPrice(lowerEthAmount);
-        changeDaiToEth(lowerDaiAmount, lowerEthAmount);
+        uint256 lowerTokenAmount = UniswapTokenExchange.getTokenToEthOutputPrice(lowerEthAmount);
+        changeTokenToEth(lowerTokenAmount, lowerEthAmount);
         addLiquidityAndTransfer(lowerEthAmount, min_liquidity, max_token, tokenExchange);
-        sendTokenInWithdraw(Beneficiary, daiAmount.sub(lowerDaiAmount), newTokenAmount.sub(max_token));
+        sendTokenInWithdraw(Beneficiary, TokenAmount.sub(lowerTokenAmount), newTokenAmount.sub(max_token));
         return true;
     }
     
@@ -304,9 +304,9 @@ contract Growdrop {
         require(tokenExchange.transfer(Beneficiary, liquidity));
     }
     
-    function changeDaiToEth(uint256 daiAmount, uint256 daiToEthAmount) private {
-        require(Token.approve(address(UniswapDaiExchange), daiAmount));
-        require(daiToEthAmount==UniswapDaiExchange.tokenToEthTransferInput(daiAmount, daiToEthAmount, 1739591241, address(this)));
+    function changeTokenToEth(uint256 TokenAmount, uint256 TokenToEthAmount) private {
+        require(Token.approve(address(UniswapTokenExchange), TokenAmount));
+        require(TokenToEthAmount==UniswapTokenExchange.tokenToEthTransferInput(TokenAmount, TokenToEthAmount, 1739591241, address(this)));
     }
     
     function TotalBalance() public view returns (uint256) {
