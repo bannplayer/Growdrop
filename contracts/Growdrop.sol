@@ -85,7 +85,7 @@ contract Growdrop {
         manager=GrowdropManager(msg.sender);
         UniswapFactory = UniswapFactoryInterface(UniswapFactoryAddr);
         UniswapDaiExchange=UniswapExchangeInterface(UniswapDaiExchangeAddr);
-        require(_ToUniswapInterestRate>0 && _ToUniswapInterestRate<100);
+        require(_ToUniswapInterestRate>0 && _ToUniswapInterestRate<98);
         ToUniswapTokenAmount=_ToUniswapTokenAmount;
         ToUniswapInterestRate=_ToUniswapInterestRate;
     }
@@ -147,7 +147,7 @@ contract Growdrop {
         if(!manager.CheckUserJoinedGrowdrop(address(this),msg.sender)) {
             require(manager.emitUserActionEvent(msg.sender, 0, now, 4, 0));
         }
-        require(manager.emitUserActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 0, 0));
+        require(manager.emitUserActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 0, Amount));
         return true;
     }
     
@@ -180,7 +180,7 @@ contract Growdrop {
         TotalCTokenAmount=TotalCTokenAmount.sub(BalanceDif);
         
         //event
-        require(manager.emitUserActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 1, 0));
+        require(manager.emitUserActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 1, Amount));
         return true;
     }
     
@@ -193,12 +193,12 @@ contract Growdrop {
         EndGrowdrop();
         
         if(msg.sender==Beneficiary) {
-            uint256 OwnerFee=TotalInterestOver.div(100);
+            uint256 OwnerFee=TotalInterestOver.mul(3).div(100);
             if(ToUniswap) {
                 uint256 ToUniswapInterestRateCalculated = TotalInterestOver.mul(ToUniswapInterestRate).div(100);
                 require(Token.transfer(Beneficiary, TotalInterestOver.sub(ToUniswapInterestRateCalculated).sub(OwnerFee)));
             
-                if(!AddToUniswap(ToUniswapInterestRateCalculated, ToUniswapTokenAmount)) {
+                if(!AddToUniswap(ToUniswapInterestRateCalculated)) {
                     sendTokenInWithdraw(Beneficiary, ToUniswapInterestRateCalculated, ToUniswapTokenAmount);
                 }
                 require(manager.emitUniswapAddedEvent(address(GrowdropToken), ToUniswapInterestRateCalculated, ToUniswapTokenAmount, now));
@@ -232,11 +232,10 @@ contract Growdrop {
             
             require(CToken.transfer(owner, CToken.balanceOf(address(this)).sub(TotalCTokenAmount)));
             
+            //store last exchangeRateStored to calculate
+            ExchangeRateOver = CToken.exchangeRateCurrent();
             //redeem all ctoken balance of Growdrop contract, and there will be no more interests from Growdrop contract
             require(CToken.redeem(TotalCTokenAmount)==0);
-            
-            //store last exchangeRateStored to calculate
-            ExchangeRateOver = CToken.exchangeRateStored();
             
             uint256 calculatedBalance = MulAndDiv(TotalCTokenAmount, ExchangeRateOver, ConstVal);
             
@@ -249,7 +248,7 @@ contract Growdrop {
         }
     }
     
-    function AddToUniswap(uint256 daiAmount, uint256 newTokenAmount) private returns (bool) {
+    function AddToUniswap(uint256 daiAmount) private returns (bool) {
         address newTokenExchangeAddr = UniswapFactory.getExchange(address(GrowdropToken)); 
         if(newTokenExchangeAddr==address(0x0)) {
             newTokenExchangeAddr = UniswapFactory.createExchange(address(GrowdropToken));
@@ -266,19 +265,19 @@ contract Growdrop {
         if (newTokenExchange.totalSupply()==0) {
             changeDaiToEth(daiAmount, daiToEthAmount);
             min_liquidity = address(newTokenExchange).balance.add(daiToEthAmount);
-            addLiquidityAndTransfer(daiToEthAmount,min_liquidity,newTokenAmount,newTokenExchange);
+            addLiquidityAndTransfer(daiToEthAmount,min_liquidity,ToUniswapTokenAmount,newTokenExchange);
         } else {
             uint256 eth_reserve = address(newTokenExchange).balance;
             uint256 token_reserve = GrowdropToken.balanceOf(address(newTokenExchange));
             uint256 total_liquidity = newTokenExchange.totalSupply();
             max_token = MulAndDiv(daiToEthAmount, token_reserve, eth_reserve).add(1);
             min_liquidity = MulAndDiv(daiToEthAmount, total_liquidity, eth_reserve);
-            if(max_token>newTokenAmount) {
-                return addLiquidityAndTransferLower(eth_reserve,token_reserve,total_liquidity,newTokenAmount,daiAmount,newTokenExchange);
+            if(max_token>ToUniswapTokenAmount) {
+                return addLiquidityAndTransferLower(eth_reserve,token_reserve,total_liquidity,ToUniswapTokenAmount,daiAmount,newTokenExchange);
             } else {
                 changeDaiToEth(daiAmount, daiToEthAmount);
                 addLiquidityAndTransfer(daiToEthAmount,min_liquidity,max_token,newTokenExchange);
-                require(GrowdropToken.transfer(Beneficiary, newTokenAmount-max_token));
+                require(GrowdropToken.transfer(Beneficiary, ToUniswapTokenAmount-max_token));
             }
         }
         return true;
