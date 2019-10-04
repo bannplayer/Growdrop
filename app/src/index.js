@@ -50,6 +50,10 @@ const App = {
     App.web3 = await new Web3(torus.provider);
   },
 
+  SimpleTokenMint: async function() {
+    return await App.SimpleToken.methods.mint().send({from:App.account});
+  },
+
   withDecimal: function(number) {
     return String(Number(number)/Number("1000000000000000000"));
   },
