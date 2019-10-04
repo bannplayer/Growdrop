@@ -11,6 +11,8 @@
   </style>
   <body>
     <h1>Growdrop</h1>
+    <button onclick="App.MetamaskLogin()">Use Metamask</button>
+    <button onclick="App.TorusLogin()">Use Torus</button>
     <p>You have <strong class="DAIbalance">loading...</strong> DAI</p>
     <p>You approved <strong class="DAIAllowance">loading...</strong> DAI to this growdrop contract</p>
     <p>You have <strong class="SimpleTokenbalance">loading...</strong> SimpleToken</p>
@@ -20,6 +22,8 @@
     <p>SimpleToken uniswap token pool : <strong class="UniswapSimpleTokenTokenPool">loading...</strong> SimpleToken</p>
 
     <p>Dai to eth (per 1 Dai) : <strong class="UniswapDaiToEth">loading...</strong> ETH</p>
+
+    <p id="status"></p>
 
     <h1>Approve DAI to Growdrop contract</h1>
 
@@ -130,11 +134,11 @@
 
   <div class="Mintdiv">
     <input type="text" id="Mintinput" style="display:inline;" data-id="0" placeholder="you should first approve DAI to add funds"/>
-    <button class="Mintbutton" style="display:inline" data-id="0">Mint</button>
+    <button class="Mintbutton" style="display:inline" data-id="0" onclick="App.Mint()">Mint</button>
   </div>
   <div class="Redeemdiv">
     <input type="text" id="Redeeminput" style="display:inline;" data-id="0" placeholder="only funds not interests"/>
-    <button class="Redeembutton" style="display:inline" data-id="0">Redeem</button>
+    <button class="Redeembutton" style="display:inline" data-id="0" onclick="App.Redeem()">Redeem</button>
   </div>
 
   <div class="Withdrawdiv">
@@ -144,7 +148,7 @@
       id="AddToUniswap"
       placeholder="1 -> true, 0 -> false (only for beneficiary)"
     />
-    <button class="Withdrawbutton" style="display:inline" data-id="0">Withdraw</button>
+    <button class="Withdrawbutton" style="display:inline" data-id="0" onclick="App.Withdraw()">Withdraw</button>
   </div>
 
     <div id="Growdrop_event_row" >
@@ -200,8 +204,6 @@
         </div>
     </div>
   </div>
-
-    <p id="status"></p>
     <p>
       <strong>Hint:</strong> open the browser developer console to view any
       errors and warnings.
