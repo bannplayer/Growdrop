@@ -12,4 +12,5 @@ contract CTokenInterface {
     function exchangeRateStored() public view returns (uint);
     
     function transfer(address dst, uint256 amount) external returns (bool);
+    function exchangeRateCurrent() public returns (uint);
 }
