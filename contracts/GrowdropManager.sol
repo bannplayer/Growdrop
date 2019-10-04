@@ -5,11 +5,9 @@ import "./SafeMath.sol";
 
 contract GrowdropManager {
     using SafeMath for uint256;
-    //owner of GrowdropManager
     address public Owner;
     mapping(address => bool) public CheckOwner;
     
-    //array of Growdrop contract address
     address[] public GrowdropList;
 
     uint256 public EventIdx;
@@ -21,7 +19,6 @@ contract GrowdropManager {
     
     event NewGrowdropContract(uint256 indexed _eventIdx, uint256 indexed _idx, address indexed _beneficiary, address _GrowdropAddress);
 
-    //event when Growdrop starts (Growdrop start time)
     event GrowdropAction(uint256 indexed _eventIdx, address indexed _Growdrop, bool indexed _ActionIdx, uint256 _ActionTime);
     
     event UserAction(uint256 indexed _eventIdx, address indexed _Growdrop, address indexed _From, uint256 _Amount, uint256 _ActionTime, uint256 _ActionIdx);
@@ -33,7 +30,6 @@ contract GrowdropManager {
         CheckOwner[msg.sender]=true;
     }
     
-    //only owner can add Growdrop contract 
     function newGrowdrop(address TokenAddr, address CTokenAddr, address GrowdropTokenAddr, address BeneficiaryAddr, uint256 GrowdropAmount, uint256 GrowdropApproximateStartTime, uint256 GrowdropPeriod, uint256 ToUniswapTokenAmount, uint256 ToUniswapInterestRate, address UniswapFactoryAddr, address UniswapDaiExchangeAddr) public {
         require(CheckOwner[msg.sender]);
         Growdrop newGrowdropContract = new Growdrop(TokenAddr, CTokenAddr, GrowdropTokenAddr, BeneficiaryAddr, GrowdropAmount, GrowdropApproximateStartTime, GrowdropPeriod, ToUniswapTokenAmount, ToUniswapInterestRate, UniswapFactoryAddr, UniswapDaiExchangeAddr);
@@ -49,15 +45,15 @@ contract GrowdropManager {
         emit GrowdropAction(EventIdx, msg.sender, ActionIdx, ActionTime);
         return true;
     }
-    function emitUserActionEvent(address From, uint256 Amount, uint256 ActionTime, uint256 ActionIdx, uint256 WithdrawSub) public returns (bool) {
+    function emitUserActionEvent(address From, uint256 Amount, uint256 ActionTime, uint256 ActionIdx, uint256 AddOrSubValue) public returns (bool) {
         require(CheckGrowdropContract[msg.sender]);
         EventIdx++;
         if(ActionIdx==0) {
-            TotalUserInvestedAmount[From]=TotalUserInvestedAmount[From].add(Amount);
+            TotalUserInvestedAmount[From]=TotalUserInvestedAmount[From].add(AddOrSubValue);
         } else if (ActionIdx==1) {
-            TotalUserInvestedAmount[From]=TotalUserInvestedAmount[From].sub(Amount);
+            TotalUserInvestedAmount[From]=TotalUserInvestedAmount[From].sub(AddOrSubValue);
         } else if (ActionIdx==3) {
-            TotalUserInvestedAmount[From]=TotalUserInvestedAmount[From].sub(WithdrawSub);
+            TotalUserInvestedAmount[From]=TotalUserInvestedAmount[From].sub(AddOrSubValue);
         } else if(ActionIdx==4) {
             CheckUserJoinedGrowdrop[msg.sender][From]=true;
             TotalUserCount[msg.sender]++;
