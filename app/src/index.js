@@ -4,7 +4,7 @@ import GrowdropArtifact from "../../build/contracts/Growdrop.json";
 import EIP20Interface from "../../build/contracts/EIP20Interface.json";
 import SimpleTokenABI from "./SimpleTokenABI.json";
 import UniswapExchangeInterfaceABI from "./UniswapExchangeInterfaceABI.json";
-//import Torus from "@toruslabs/torus-embed";
+import Torus from "@toruslabs/torus-embed";
 
 const App = {
   web3: null,
@@ -15,7 +15,40 @@ const App = {
   GrowdropManager: null,
   UniswapDAIExchange: null,
   UniswapSimpleTokenExchangeAddress: "0x0c32A8C03e96347BaB0D4caA8F936818E71A0faB",
-  torusWeb3: null,
+
+  MetamaskLogin: async function() {
+    App.setStatus("login to metamask... please wait");
+    await App.MetamaskProvider();
+    await App.start();
+    App.setStatus("login to metamask done");
+  },
+
+  TorusLogin: async function() {
+    App.setStatus("login to torus... please wait");
+    await App.TorusProvider();
+    await App.start();
+    App.setStatus("login to torus done");
+  },
+
+  MetamaskProvider: async function() {
+    if (window.ethereum) {
+      App.web3 = new Web3(window.ethereum);
+      await window.ethereum.enable();
+    }
+  },
+
+  TorusProvider: async function() {
+    const torus = new Torus();
+    await torus.init({
+      network: {
+        host: 'rinkeby',
+        chainId: 4,
+        networkName: 'Rinkeby Test Network'
+      }
+    });
+    await torus.login();
+    App.web3 = await new Web3(torus.provider);
+  },
 
   withDecimal: function(number) {
     return String(Number(number)/Number("1000000000000000000"));
@@ -56,7 +89,6 @@ const App = {
   },
 
   start: async function() {
-    //await this.torustest();
     const { web3 } = this;
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = GrowdropManagerArtifact.networks[networkId];
@@ -76,7 +108,6 @@ const App = {
     if(App.Growdrop!=null) {
       await this.refresh();
     }
-    this.bindEvents();
   },
 
   /*
@@ -577,8 +608,8 @@ const App = {
     const GrowdropOver_value = GrowdropData_value[7];
     if(GrowdropOver_value) {
       const UserData_value = await App.GetUserDataCall(App.Growdrop, App.account);
-      $(document).find('.TotalInterestdisplay').text(App.withDecimal(GrowdropData_value[6]));
-      $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(String(Number(GrowdropData_value[5])-Number(GrowdropData_value[6]))));
+      $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
+      $(document).find('.TotalInterestdisplay').text(App.withDecimal(String(Number(GrowdropData_value[5])-Number(GrowdropData_value[6]))));
       $(document).find('.TotalBalancedisplay').text(App.withDecimal(GrowdropData_value[5]));
 
       $(document).find('.TotalPerAddressdisplay').text(App.withDecimal(UserData_value[1]));
@@ -633,30 +664,21 @@ const App = {
     }
   },
 
-  bindEvents: function() {
-    $(document).on('click', '.Mintbutton', App.Mint);
-    $(document).on('click', '.Redeembutton', App.Redeem);
-    $(document).on('click', '.Withdrawbutton', App.Withdraw);
-  },
-
-  Mint: async function(event) {
-    event.preventDefault();
+  Mint: async function() {
     var MintAmount = parseInt(document.getElementById("Mintinput").value);
     App.setStatus("Initiating Mint transaction... (please wait)");
     const Mint_res = await App.MintTx(App.Growdrop, String(MintAmount*1000000000000000000), App.account);
     App.setStatus(Mint_res);
   },
 
-  Redeem: async function(event) {
-    event.preventDefault();
+  Redeem: async function() {
     var RedeemAmount = parseInt(document.getElementById("Redeeminput").value);
     App.setStatus("Initiating Redeem transaction... (please wait)");
     const Redeem_res = await App.RedeemTx(App.Growdrop, String(RedeemAmount*1000000000000000000), App.account);
     App.setStatus(Redeem_res);
   },
 
-  Withdraw: async function(event) {
-    event.preventDefault();
+  Withdraw: async function() {
     const add_to_uniswap = parseInt(document.getElementById("AddToUniswap").value);
     App.setStatus("Initiating Withdraw transaction... (please wait)");
     if(add_to_uniswap==1) {
@@ -723,27 +745,13 @@ const App = {
   setStatus: function(message) {
     const status = document.getElementById("status");
     status.innerHTML = message;
-  },
-
-  /*
-  torustest: async function() {
-    const torus = new Torus();
-    await torus.init({
-      network: {
-        host: 'rinkeby',
-        chainId: 4,
-        networkName: 'Rinkeby Test Network'
-      }
-    });
-    await torus.login();
-    App.web3 = await new Web3(torus.provider);
-  },
-  */
+  },  
 };
 
 window.App = App;
 
 window.addEventListener("load", function() {
+  /*
   if (window.ethereum) {
     App.web3 = new Web3(window.ethereum);
     window.ethereum.enable();
@@ -755,7 +763,8 @@ window.addEventListener("load", function() {
       new Web3.providers.HttpProvider("http://127.0.0.1:8545")
     );
   }
+  */
 
-  App.start();
+  //App.start();
 });
 
