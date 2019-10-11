@@ -1,40 +1,4 @@
-{"abi":[
-	{
-		"constant": true,
-		"inputs": [],
-		"name": "totalSupply",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"constant": true,
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "eth_bought",
-				"type": "uint256"
-			}
-		],
-		"name": "getTokenToEthOutputPrice",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "tokens_sold",
-				"type": "uint256"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	},
+[
 	{
 		"constant": false,
 		"inputs": [
@@ -92,12 +56,7 @@
 		"inputs": [
 			{
 				"internalType": "uint256",
-				"name": "tokens_sold",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "min_eth",
+				"name": "min_tokens",
 				"type": "uint256"
 			},
 			{
@@ -111,16 +70,37 @@
 				"type": "address"
 			}
 		],
-		"name": "tokenToEthTransferInput",
+		"name": "ethToTokenTransferInput",
 		"outputs": [
 			{
 				"internalType": "uint256",
-				"name": "eth_bought",
+				"name": "tokens_bought",
+				"type": "uint256"
+			}
+		],
+		"payable": true,
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "eth_sold",
+				"type": "uint256"
+			}
+		],
+		"name": "getEthToTokenInputPrice",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokens_bought",
 				"type": "uint256"
 			}
 		],
 		"payable": false,
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -137,6 +117,73 @@
 			{
 				"internalType": "uint256",
 				"name": "eth_bought",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "eth_bought",
+				"type": "uint256"
+			}
+		],
+		"name": "getTokenToEthOutputPrice",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokens_sold",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokens_sold",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "min_eth",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "deadline",
+				"type": "uint256"
+			}
+		],
+		"name": "tokenToEthSwapInput",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "eth_bought",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [],
+		"name": "totalSupply",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
 				"type": "uint256"
 			}
 		],
@@ -170,4 +217,4 @@
 		"stateMutability": "nonpayable",
 		"type": "function"
 	}
-]}
+]
