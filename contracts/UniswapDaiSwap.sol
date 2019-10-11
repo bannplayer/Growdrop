@@ -7,6 +7,7 @@ import "./SafeMath.sol";
 import "./Growdrop.sol";
 
 //only for kovan testing
+//kovan address : 0xdee497ad02186ea1f87d176f4028a9ab0193e444
 
 contract UniswapDaiSwap {
     using SafeMath for uint256;
