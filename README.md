@@ -44,12 +44,12 @@ supporter interest.
 Example: Mike, Ryan, and Bob can stake a crypto asset on a project called CKB to offer interest and receive CKB tokens in return. The CKB project sets a token amount of 100,000 CKB and one month of funding period when Growdrop distributes smart contracts. Mike sends 300,000 DAI, Ryan sends 500,000 DAI, Bob sends 200,000 DAI to the Growdrop pool, and assumes that the Lending Protocol's annual interest rate is 12% at that time. After one month of funding period, the accumulated interest is sent to the CKB project and CKB tokens are paid to the supporter according to interest rate.
 ![5484512100|690x387](./readme_image.jpg) 
 
-# Uniswap
+# Uniswap and Kyberswap
 If the initial token project is not listed or there is no use, the token from Growdrop can be added to uniswap to set the listing and price. You can create exchange contract and add liquidity pool for a certain amount of tokens and interest. Here's how to provide Growdrop.
 
 1. The Growdrop Distributor sets a certain amount of tokens and interest rate for the uniswap.
 
-2. At the end of the Growdrop funding period, swap the interest calculated by interest rate to ETH by uniswap exchange contract.
+2. At the end of the Growdrop funding period, swap the interest token calculated by interest rate to ETH by kyberswap.
 
 3. List the swapped ETH and tokens to uniswap. 
 
