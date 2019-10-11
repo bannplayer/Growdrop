@@ -3,18 +3,22 @@ import GrowdropManagerArtifact from "../../build/contracts/GrowdropManager.json"
 import GrowdropArtifact from "../../build/contracts/Growdrop.json";
 import EIP20Interface from "../../build/contracts/EIP20Interface.json";
 import SimpleTokenABI from "./SimpleTokenABI.json";
-import UniswapExchangeInterfaceABI from "./UniswapExchangeInterfaceABI.json";
+import UniswapDaiSwap from "../../build/contracts/UniswapDaiSwap.json";
+import KyberNetworkProxy from "../../build/contracts/KyberNetworkProxyInterface.json";
 import Torus from "@toruslabs/torus-embed";
+var bigdecimal = require("bigdecimal");
 
 const App = {
   web3: null,
   account: null,
   DAI: null,
+  KyberDAI: null,
   Growdrop: null,
   SimpleToken: null,
   GrowdropManager: null,
-  UniswapDAIExchange: null,
-  UniswapSimpleTokenExchangeAddress: "0x0c32A8C03e96347BaB0D4caA8F936818E71A0faB",
+  UniswapDaiSwap: null,
+  KyberNetworkProxy: null,
+  UniswapSimpleTokenExchangeAddress: "0xfC8c8f7040b3608A74184D664853f5f30F53CbA8",
 
   MetamaskLogin: async function() {
     App.setStatus("login to metamask... please wait");
@@ -41,9 +45,9 @@ const App = {
     const torus = new Torus();
     await torus.init({
       network: {
-        host: 'rinkeby',
-        chainId: 4,
-        networkName: 'Rinkeby Test Network'
+        host: 'kovan',
+        chainId: 42,
+        networkName: 'kovan Test Network'
       }
     });
     await torus.login();
@@ -55,7 +59,11 @@ const App = {
   },
 
   withDecimal: function(number) {
-    return String(Number(number)/Number("1000000000000000000"));
+    return String(App.toBigInt(number).divide(new bigdecimal.BigDecimal("1000000000000000000")));
+  },
+
+  toBigInt: function(number) {
+    return new bigdecimal.BigDecimal(String(number));
   },
 
   /*
@@ -94,23 +102,27 @@ const App = {
 
   start: async function() {
     const { web3 } = this;
+    
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = GrowdropManagerArtifact.networks[networkId];
 
     this.GrowdropManager = this.contractInit(GrowdropManagerArtifact.abi, deployedNetwork.address);
-    this.DAI = this.contractInit(EIP20Interface.abi, "0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa");
-    this.UniswapDAIExchange = this.contractInit(UniswapExchangeInterfaceABI.abi, "0xaf51baaa766b65e8b3ee0c2c33186325ed01ebd5");
+    this.DAI = this.contractInit(EIP20Interface.abi, "0xbF7A7169562078c96f0eC1A8aFD6aE50f12e5A99");
+    this.KyberDAI = this.contractInit(EIP20Interface.abi, "0xC4375B7De8af5a38a93548eb8453a498222C4fF2");
+    this.UniswapDaiSwap = this.contractInit(UniswapDaiSwap.abi, "0xdee497ad02186ea1f87d176f4028a9ab0193e444");
+    this.KyberNetworkProxy = this.contractInit(KyberNetworkProxy.abi, "0x692f391bCc85cefCe8C237C01e1f636BbD70EA4D");
     
     this.account = await this.getProviderCurrentAccount();
     await this.refreshFirst();
   },
 
   refreshFirst: async function() {
-    this.SimpleToken = this.contractInit(SimpleTokenABI.abi, "0x1c73c83cbf5c39459292e7be82922d69f9d677e6");
+    this.SimpleToken = this.contractInit(SimpleTokenABI.abi, "0x53cc0b020c7c8bbb983d0537507d2c850a22fa4c");
     await this.refreshGrowdrop();
 
     if(App.Growdrop!=null) {
       await this.refresh();
+      App.getUserActionPastEvents(App.GrowdropManager, App.Growdrop._address, App.account);  
     }
   },
 
@@ -150,7 +162,8 @@ const App = {
 
   /*
   Growdrop Contract Data call
-  contractinstance => Growdrop contract instance
+  contractinstance => UniswapDaiSwap contract instance
+  GrowdropAddress => Growdrop contract address
 
   return =>
   address of Growdrop Token Contract (String)
@@ -165,13 +178,14 @@ const App = {
   Growdrop token amount to uniswap pool (Number)
   Growdrop interest percentage to uniswap pool (Number 1~99)
   */
-  GetGrowdropDataCall: async function(contractinstance) {
-    return await contractinstance.methods.getGrowdropData().call();
+  GetGrowdropDataCall: async function(contractinstance, GrowdropAddress) {
+    return await contractinstance.methods.getGrowdropData(GrowdropAddress).call();
   },
 
   /*
   Growdrop Contract's User Data call
-  contractinstance => Growdrop contract instance
+  contractinstance => UniswapDaiSwap contract instance
+  GrowdropAddress => Growdrop contract address (String)
   account => account to get User Data (String)
 
   return => 
@@ -181,8 +195,8 @@ const App = {
   investor's interest percentage of total Growdrop contract interest (Number)
   investor's Growdrop token amount calculated by investor's interest percentage (Number)
   */
-  GetUserDataCall: async function(contractinstance, account) {
-    return await contractinstance.methods.getUserData().call({from: account});
+  GetUserDataCall: async function(contractinstance, GrowdropAddress, account) {
+    return await contractinstance.methods.getUserData(GrowdropAddress).call({from: account});
   },
 
   /*
@@ -205,7 +219,7 @@ const App = {
   Growdrop contract address (String)
   */
   GetGrowdropCall: async function(contractinstance, contractIdx) {
-    return await contractinstance.methods.getGrowdrop(contractIdx).call();
+    return await contractinstance.methods.GrowdropList(contractIdx).call();
   },
 
   /*
@@ -322,6 +336,10 @@ const App = {
   CheckOwnerCall: async function(contractinstance, account) {
     return await contractinstance.methods.CheckOwner(account).call();
   },
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  getExpectedRateCall: async function(contractinstance, src_token, dest_token, amount) {
+    return await contractinstance.methods.getExpectedRate(src_token, dest_token, amount).call();
+  },
 
   /*
   ERC20 token approve transaction
@@ -350,12 +368,10 @@ const App = {
   growdroptokenaddress => selling token address (String)
   beneficiaryaddress => beneficiary address (String)
   growdroptokenamount => selling token amount (Number)
-  GrowdropApproximateStartTime => Growdrop contract's approximate start time (not important only to show, Number)
   GrowdropPeriod => Growdrop contract's selling period (Number)
   ToUniswapGrowdropTokenAmount => selling token amount to add Uniswap (Number) 
   ToUniswapInterestRate => beneficiary's interest percentage to add Uniswap (1~99, Number)
-  UniswapFactoryAddr => Uniswap Factory contract address (set, String)
-  UniswapExchangeAddr => Uniswap Dai Exchange contract address (set, String)
+  KyberTokenAddr => Kyber Dai Exchange contract address (set, String)
   account => address calling (owner, String)
 
   return => 
@@ -368,12 +384,10 @@ const App = {
     growdroptokenaddress, 
     beneficiaryaddress, 
     growdroptokenamount, 
-    GrowdropApproximateStartTime,
     GrowdropPeriod,
     ToUniswapGrowdropTokenAmount,
     ToUniswapInterestRate,
-    UniswapFactoryAddr,
-    UniswapExchangeAddr,
+    KyberTokenAddr,
     account) {
     return await contractinstance.methods.newGrowdrop(
       tokenaddress,
@@ -381,12 +395,10 @@ const App = {
       growdroptokenaddress,
       beneficiaryaddress,
       growdroptokenamount,
-      GrowdropApproximateStartTime,
       GrowdropPeriod,
       ToUniswapGrowdropTokenAmount,
       ToUniswapInterestRate,
-      UniswapFactoryAddr,
-      UniswapExchangeAddr
+      KyberTokenAddr
     ).send({from:account})
     .then(receipt => {
       return (receipt.status==true);
@@ -568,20 +580,28 @@ const App = {
 
   refresh: async function() {
     const DAIbalance = await this.TokenBalanceOfCall(this.DAI, App.account);
+    const KyberDAIbalance = await this.TokenBalanceOfCall(this.KyberDAI, App.account);
     const SimpleTokenbalance = await this.TokenBalanceOfCall(this.SimpleToken, App.account);
 
     const DAIAllowance = await App.TokenAllowanceCall(App.DAI, App.account, App.Growdrop._address);
+    const KyberDAIAllowance = await App.TokenAllowanceCall(App.KyberDAI, App.account, App.Growdrop._address);    
     const SimpleTokenAllowance = await App.TokenAllowanceCall(App.SimpleToken, App.account, App.Growdrop._address);
-    const DaiToEthPrice = await App.UniswapTokenToEthInputPriceCall(App.UniswapDAIExchange, "1000000000000000000");
+
+    const expectedRate = await App.getExpectedRateCall(App.KyberNetworkProxy, App.KyberDAI._address, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", "1000000000000000000");
+
     const UniswapSimpleTokenbalance = await App.TokenBalanceOfCall(App.SimpleToken, App.UniswapSimpleTokenExchangeAddress);
     const UniswapSimpleTokenEthbalance = await App.GetBalanceCall(App.UniswapSimpleTokenExchangeAddress);
     
     const DAIbalanceElement = document.getElementsByClassName("DAIbalance")[0];
     this.setElement_innerHTML(DAIbalanceElement, DAIbalance);
+    const KyberDAIbalanceElement = document.getElementsByClassName("KyberDAIbalance")[0];
+    this.setElement_innerHTML(KyberDAIbalanceElement, KyberDAIbalance);
     const SimpleTokenbalanceElement = document.getElementsByClassName("SimpleTokenbalance")[0];
     this.setElement_innerHTML(SimpleTokenbalanceElement, SimpleTokenbalance);
     const DAIAllowanceElement = document.getElementsByClassName("DAIAllowance")[0];
     App.setElement_innerHTML(DAIAllowanceElement, DAIAllowance);
+    const KyberDAIAllowanceElement = document.getElementsByClassName("KyberDAIAllowance")[0];
+    App.setElement_innerHTML(KyberDAIAllowanceElement, KyberDAIAllowance);
     const SimpleTokenAllowanceElement = document.getElementsByClassName("SimpleTokenAllowance")[0];
     App.setElement_innerHTML(SimpleTokenAllowanceElement, SimpleTokenAllowance);
 
@@ -589,10 +609,10 @@ const App = {
     App.setElement_innerHTML(UniswapSimpleTokenEthPoolElement, UniswapSimpleTokenEthbalance);
     const UniswapSimpleTokenTokenPoolElement = document.getElementsByClassName("UniswapSimpleTokenTokenPool")[0];
     App.setElement_innerHTML(UniswapSimpleTokenTokenPoolElement, UniswapSimpleTokenbalance);
-    const UniswapDaiToEthElement = document.getElementsByClassName("UniswapDaiToEth")[0];
-    App.setElement_innerHTML(UniswapDaiToEthElement, DaiToEthPrice);
+    const DaiToEthElement = document.getElementsByClassName("KyberDaiToEth")[0];
+    App.setElement_innerHTML(DaiToEthElement, expectedRate[0]);
 
-    const GrowdropData_value = await App.GetGrowdropDataCall(App.Growdrop);
+    const GrowdropData_value = await App.GetGrowdropDataCall(App.UniswapDaiSwap, App.Growdrop._address);
 
     if(GrowdropData_value[8]==false) {
       $(document).find('.GrowdropStatusdisplay').text("pending");
@@ -611,9 +631,19 @@ const App = {
 
     const GrowdropOver_value = GrowdropData_value[7];
     if(GrowdropOver_value) {
-      const UserData_value = await App.GetUserDataCall(App.Growdrop, App.account);
+      const UserData_value = await App.GetUserDataCall(App.UniswapDaiSwap, App.Growdrop._address, App.account);
       $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
-      $(document).find('.TotalInterestdisplay').text(App.withDecimal(String(Number(GrowdropData_value[5])-Number(GrowdropData_value[6]))));
+      $(document).find('.TotalInterestdisplay').text(App.withDecimal(String(App.toBigInt(GrowdropData_value[5]).subtract(App.toBigInt(GrowdropData_value[6])))));
+
+      const CurrentDaiToEthElement = document.getElementsByClassName("CurrentDaiToEth")[0];
+      App.setElement_innerHTML(CurrentDaiToEthElement, 
+        App.toBigInt(expectedRate[0])
+        .multiply(
+          App.toBigInt(GrowdropData_value[5])
+          .subtract(App.toBigInt(GrowdropData_value[6]))
+          )
+        .divide(App.toBigInt(1000000000000000000)));
+
       $(document).find('.TotalBalancedisplay').text(App.withDecimal(GrowdropData_value[5]));
 
       $(document).find('.TotalPerAddressdisplay').text(App.withDecimal(UserData_value[1]));
@@ -625,7 +655,7 @@ const App = {
       $(document).find('.TotalBalancedisplay').text(App.withDecimal(GrowdropData_value[5]));
       $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
 
-      if(Number(GrowdropData_value[5])<=Number(GrowdropData_value[6])) {
+      if(App.toBigInt(GrowdropData_value[5])<=App.toBigInt(GrowdropData_value[6])) {
         $(document).find('.TotalInterestdisplay').text("wait for accrueinterest transaction");
         $(document).find('.TotalPerAddressdisplay').text("wait for accrueinterest transaction");
         $(document).find('.InvestAmountPerAddressdisplay').text("wait for accrueinterest transaction");
@@ -639,14 +669,22 @@ const App = {
         const InvestAmountPerAddressres = await App.InvestAmountPerAddressCall(App.Growdrop, App.account);
         $(document).find('.InvestAmountPerAddressdisplay').text(App.withDecimal(InvestAmountPerAddressres));
 
-        if(Number(TotalPerAddressres)<=Number(InvestAmountPerAddressres)) {
+        if(App.toBigInt(TotalPerAddressres)<=App.toBigInt(InvestAmountPerAddressres)) {
           $(document).find('.TotalInterestdisplay').text("wait for accrueinterest transaction");
           $(document).find('.InterestPerAddressdisplay').text("wait for accrueinterest transaction");
           $(document).find('.InterestRatedisplay').text("wait for accrueinterest transaction");
           $(document).find('.TokenByInterestdisplay').text("wait for accrueinterest transaction");
         } else {
-          const UserData_value = await App.GetUserDataCall(App.Growdrop, App.account);
-          $(document).find('.TotalInterestdisplay').text(App.withDecimal(String(Number(GrowdropData_value[5])-Number(GrowdropData_value[6]))));
+          const UserData_value = await App.GetUserDataCall(App.UniswapDaiSwap, App.Growdrop._address, App.account);
+          $(document).find('.TotalInterestdisplay').text(App.withDecimal(String(App.toBigInt(GrowdropData_value[5]).subtract(App.toBigInt(GrowdropData_value[6])))));
+          const CurrentDaiToEthElement = document.getElementsByClassName("CurrentDaiToEth")[0];
+          App.setElement_innerHTML(CurrentDaiToEthElement, 
+            App.toBigInt(expectedRate[0])
+            .multiply(
+              App.toBigInt(GrowdropData_value[5])
+              .subtract(App.toBigInt(GrowdropData_value[6]))
+              )
+            .divide(App.toBigInt(1000000000000000000)));
           $(document).find('.InterestPerAddressdisplay').text(App.withDecimal(UserData_value[2]));
           $(document).find('.InterestRatedisplay').text(App.withDecimal(UserData_value[3]));
           $(document).find('.TokenByInterestdisplay').text(App.withDecimal(UserData_value[4]));
@@ -654,15 +692,14 @@ const App = {
       }
     }
 
-    App.getUserActionPastEvents(App.GrowdropManager, App.Growdrop._address, App.account);   
   },
 
   refreshGrowdrop: async function() {
     const getGrowdropListLengthres = await App.GetGrowdropListLengthCall(App.GrowdropManager);
-    if(Number(getGrowdropListLengthres)==0) {
+    if(App.toBigInt(getGrowdropListLengthres)==0) {
       App.setStatus("there is no growdrop contract yet");
     } else {
-      const getGrowdropres = await App.GetGrowdropCall(App.GrowdropManager,Number(getGrowdropListLengthres)-1);
+      const getGrowdropres = await App.GetGrowdropCall(App.GrowdropManager, String(App.toBigInt(getGrowdropListLengthres)-App.toBigInt(1)));
 
       App.Growdrop = this.contractInit(GrowdropArtifact.abi, getGrowdropres);
     }
@@ -671,14 +708,14 @@ const App = {
   Mint: async function() {
     var MintAmount = parseInt(document.getElementById("Mintinput").value);
     App.setStatus("Initiating Mint transaction... (please wait)");
-    const Mint_res = await App.MintTx(App.Growdrop, String(MintAmount*1000000000000000000), App.account);
+    const Mint_res = await App.MintTx(App.Growdrop, String(MintAmount), App.account);
     App.setStatus(Mint_res);
   },
 
   Redeem: async function() {
     var RedeemAmount = parseInt(document.getElementById("Redeeminput").value);
     App.setStatus("Initiating Redeem transaction... (please wait)");
-    const Redeem_res = await App.RedeemTx(App.Growdrop, String(RedeemAmount*1000000000000000000), App.account);
+    const Redeem_res = await App.RedeemTx(App.Growdrop, String(RedeemAmount), App.account);
     App.setStatus(Redeem_res);
   },
 
@@ -698,7 +735,7 @@ const App = {
     const amount = parseInt(document.getElementById("DAIamount").value);
 
     App.setStatus("Initiating approveDAI transaction... (please wait)");
-    const approve_res = await App.TokenApproveTx(App.DAI, App.Growdrop._address, String(amount * 1000000000000000000), App.account);
+    const approve_res = await App.TokenApproveTx(App.DAI, App.Growdrop._address, String(amount), App.account);
     App.setStatus(approve_res);
   },
 
@@ -706,14 +743,13 @@ const App = {
     const amount = parseInt(document.getElementById("SimpleTokenamount").value);
 
     App.setStatus("Initiating approveSimpleToken transaction... (please wait)");
-    const approve_res = await App.TokenApproveTx(App.SimpleToken, App.Growdrop._address, String(amount * 1000000000000000000), App.account);
+    const approve_res = await App.TokenApproveTx(App.SimpleToken, App.Growdrop._address, String(amount), App.account);
     App.setStatus(approve_res);
   },
 
   NewGrowdrop: async function() {
     const amount = parseInt(document.getElementById("NewGrowdropamount").value);
     const beneficiary = document.getElementById("NewGrowdropbeneficiary").value;
-    const starttime = document.getElementById("GrowdropStartTime").value;
     const period = document.getElementById("GrowdropPeriod").value;
     const ToUniswapGrowdropTokenAmount = document.getElementById("ToUniswapGrowdropTokenAmount").value;
     const ToUniswapInterestRate = document.getElementById("ToUniswapInterestRate").value;
@@ -722,16 +758,14 @@ const App = {
     const newGrowdrop_res = await App.NewGrowdropTx(
       App.GrowdropManager,
       App.DAI._address,
-      "0x6d7f0754ffeb405d23c51ce938289d4835be3b14",
-      "0x1c73c83cbf5c39459292e7be82922d69f9d677e6",
+      "0x0a1e4d0b5c71b955c0a5993023fc48ba6e380496",
+      "0x53cc0b020c7c8bbb983d0537507d2c850a22fa4c",
       beneficiary,
-      String(amount * 1000000000000000000),
-      starttime,
+      String(amount),
       period,
-      String(ToUniswapGrowdropTokenAmount*1000000000000000000),
+      String(ToUniswapGrowdropTokenAmount),
       ToUniswapInterestRate,
-      "0xf5D915570BC477f9B8D6C0E980aA81757A3AaC36",
-      "0xaF51BaAA766b65E8B3Ee0C2c33186325ED01eBD5",
+      "0xC4375B7De8af5a38a93548eb8453a498222C4fF2",
       App.account
       );
 
@@ -753,22 +787,4 @@ const App = {
 };
 
 window.App = App;
-
-window.addEventListener("load", function() {
-  /*
-  if (window.ethereum) {
-    App.web3 = new Web3(window.ethereum);
-    window.ethereum.enable();
-  } else {
-    console.warn(
-      "No web3 detected. Falling back to http://127.0.0.1:8545. You should remove this fallback when you deploy live"
-    );
-    App.web3 = new Web3(
-      new Web3.providers.HttpProvider("http://127.0.0.1:8545")
-    );
-  }
-  */
-
-  //App.start();
-});
 
