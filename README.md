@@ -19,7 +19,7 @@ Currently, in the case of fat Ethereum, compared to other blockchain protocols, 
 
 # Growdrop
 What we think so far is that the cost of trust in financing is very high. It is expensive and pays a lot of money for maintenance of all kinds of unnecessary surveillance systems. Growdrop is a crowdfunding  solution that guarantees the principal and deposits funds into the liquidity pool of Lending Protocol by minimizing the trust costs of existing third parties.
-![|602x408](https://lh3.googleusercontent.com/-KICpx9lGmq598nl6nhCTiI_JcHMRII0jNh5Gmic9iFswlE4vnRXEGLt7ni5q8JMZsY5TdZKr9-BIJe5AOqhCa8xfMqJppauWObCAqmIFm1iSdkKglMeTu_2-rDIHbksAgvt-RWn)
+![|602x408](./readme_image1.jpg) 
 
 # Growdrop's Mechanism
 Given that Growdrop allows third parties to securely operate smart contracts, Growdrop can 
@@ -42,7 +42,7 @@ supporter interest.
 • (Optional) Token projects can create exchanges and add liquidity pool to uniswap by setting certain tokens and interests after Growdrop funding ends. The project's token will be deposited in the uniswap liquidity pool after Growdrop funding is completed, creating an environment where traders can trade with supporters before or after listing on a centralized exchange, and value will be formed by supporters. If adding liquidity pool fails, all remained tokens and interests go to the token project.
 
 Example: Mike, Ryan, and Bob can stake a crypto asset on a project called CKB to offer interest and receive CKB tokens in return. The CKB project sets a token amount of 100,000 CKB and one month of funding period when Growdrop distributes smart contracts. Mike sends 300,000 DAI, Ryan sends 500,000 DAI, Bob sends 200,000 DAI to the Growdrop pool, and assumes that the Lending Protocol's annual interest rate is 12% at that time. After one month of funding period, the accumulated interest is sent to the CKB project and CKB tokens are paid to the supporter according to interest rate.
-![5484512100|690x387](./readme_image.jpg) 
+![5484512100|690x387](./readme_image2.jpg) 
 
 # Uniswap and Kyberswap
 If the initial token project is not listed or there is no use, the token from Growdrop can be added to uniswap to set the listing and price. You can create exchange contract and add liquidity pool for a certain amount of tokens and interest. Here's how to provide Growdrop.
