@@ -53,7 +53,7 @@ contract Tokenswap {
         uint256 minConversionRate;
         uint256 slippageRate;
         (minConversionRate,slippageRate) = KyberNetworkProxy.getExpectedRate(KyberEthToken, EIP20Interface(tokenAddress), msg.value);
-        
+        require(slippageRate!=0);
         uint256 destAmount = KyberNetworkProxy.swapEtherToToken.value(msg.value)(EIP20Interface(tokenAddress), minConversionRate);
         require(EIP20Interface(tokenAddress).transfer(msg.sender, destAmount));
     }
