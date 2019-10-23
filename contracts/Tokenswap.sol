@@ -212,7 +212,11 @@ contract Tokenswap {
         return MulAndDiv(minConversionRate, Amount, Precision);
     }
     
-    function getUniswapLiquidityPool (address uniswapExchangeAddress, address tokenAddress) public view returns (uint256, uint256) {
+    function getUniswapLiquidityPool (address tokenAddress) public view returns (uint256, uint256) {
+        address uniswapExchangeAddress = UniswapFactory.getExchange(tokenAddress);
+        if(uniswapExchangeAddress == address(0x0)) {
+            return (0,0);
+        }
         return (uniswapExchangeAddress.balance, EIP20Interface(tokenAddress).balanceOf(uniswapExchangeAddress));
     }
     
