@@ -11,7 +11,6 @@ import "./TokenswapInterface.sol";
 contract Growdrop {
 
     GrowdropManagerInterface public manager;
-    TokenswapInterface public Tokenswap;
     
     EIP20Interface public Token;
     
@@ -46,7 +45,6 @@ contract Growdrop {
     uint256 public TotalCTokenAmount;
     
     uint256 constant ConstVal=10**18;
-    //should be 10**15, only for kovan
     
     //exchangeRateStored value when Growdrop ends
     uint256 public ExchangeRateOver;
@@ -104,7 +102,7 @@ contract Growdrop {
         require(!GrowdropStart);
         GrowdropStart=true;
         
-        if(!CheckDonate()) {
+        if(DonateId==0) {
             require(GrowdropToken.transferFrom(msg.sender, address(this), GrowdropAmount+ToUniswapTokenAmount));
         }
 
@@ -177,7 +175,7 @@ contract Growdrop {
         WithdrawOver[msg.sender]=true;
         
         EndGrowdrop();
-        if(CheckDonate()) {
+        if(DonateId!=0) {
             ToUniswap=false;
         }
         
@@ -208,7 +206,7 @@ contract Growdrop {
     
     function sendTokenInWithdraw(address To, uint256 TokenAmount, uint256 GrowdropTokenAmount) private {
         require(Token.transfer(To, TokenAmount));
-        if(!CheckDonate()) {
+        if(DonateId==0) {
             require(GrowdropToken.transfer(To, GrowdropTokenAmount));
         } else {
             manager.DonateToken().mint(msg.sender, Beneficiary, address(Token), TokenAmount, DonateId);
@@ -273,10 +271,6 @@ contract Growdrop {
     function Sub(uint256 a, uint256 b) private pure returns (uint256) {
         require(a>=b);
         return a-b;
-    }
-    
-    function CheckDonate() private view returns (bool) {
-        return address(GrowdropToken)==address(manager.DonateToken());
     }
     
     function () external payable {
