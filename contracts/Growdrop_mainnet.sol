@@ -1,3 +1,4 @@
+//for mainnet
 pragma solidity ^0.5.11;
 
 import "../../ERC20/Interface/EIP20Interface.sol";
