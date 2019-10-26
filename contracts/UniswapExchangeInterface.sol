@@ -10,5 +10,4 @@ contract UniswapExchangeInterface {
     function transfer(address _to, uint256 _value) external returns (bool);
     function balanceOf(address _owner) external view returns (uint256);
     function totalSupply() external view returns (uint256);
-    function tokenAddress() external view returns (address token);
 }

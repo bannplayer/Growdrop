@@ -37,8 +37,9 @@ contract DonateToken is ERC721 {
             uint8 => mapping (
                 uint8 => uint256))) public MultihashToDonateId;
     
-    constructor () public {
+    constructor (address GrowdropManagerAddress) public {
         owner=msg.sender;
+        GrowdropManager=GrowdropManagerInterface(GrowdropManagerAddress);
     }
     
     function setGrowdropManager(address GrowdropManagerAddress) public {

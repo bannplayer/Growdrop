@@ -30,7 +30,7 @@ contract GrowdropManager {
     
     function newGrowdrop(address TokenAddr, address CTokenAddr, address GrowdropTokenAddr, address BeneficiaryAddr, uint256 GrowdropAmount, uint256 GrowdropPeriod, uint256 ToUniswapTokenAmount, uint256 ToUniswapInterestRate, uint256 DonateId) public {
         require(CheckOwner[msg.sender]);
-        require(DonateToken.DonateIdOwner(DonateId)==BeneficiaryAddr);
+        require(DonateToken.DonateIdOwner(DonateId)==BeneficiaryAddr || DonateId==0);
         address newGrowdropContract = address(new Growdrop(TokenAddr, CTokenAddr, GrowdropTokenAddr, BeneficiaryAddr, GrowdropAmount, GrowdropPeriod, ToUniswapTokenAmount, ToUniswapInterestRate, DonateId));
         CheckGrowdropContract[newGrowdropContract]=true;
         uint256 idx = GrowdropList.push(newGrowdropContract)-1;

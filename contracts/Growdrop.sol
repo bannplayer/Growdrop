@@ -45,6 +45,7 @@ contract Growdrop {
     uint256 public TotalCTokenAmount;
     
     uint256 constant ConstVal=10**18;
+    //should be 10**15, only for kovan
     
     //exchangeRateStored value when Growdrop ends
     uint256 public ExchangeRateOver;
@@ -192,13 +193,18 @@ contract Growdrop {
                 require(GrowdropToken.approve(address(manager.Tokenswap()), ToUniswapTokenAmount));
                 manager.Tokenswap().addPoolToUniswap(address(KyberToken), address(GrowdropToken), Beneficiary, swappedTokenAmount, ToUniswapTokenAmount);
             } else {
-                sendTokenInWithdraw(Beneficiary, TotalInterestOver-OwnerFee, ToUniswapTokenAmount);
+                if(DonateId==0) {
+                    sendTokenInWithdraw(Beneficiary, TotalInterestOver-OwnerFee, ToUniswapTokenAmount);
+                } else {
+                    Token.transfer(Beneficiary, TotalInterestOver-OwnerFee);
+                }
             }
             require(Token.transfer(manager.Owner(), OwnerFee));
             
             require(manager.emitGrowdropActionEvent(msg.sender, 0, now, 2, 0));
         } else {
             uint256 tokenByInterest = MulAndDiv(InterestRate(msg.sender), GrowdropAmount, ConstVal);
+            if(DonateId!=0) tokenByInterest = Sub(TotalPerAddress(msg.sender),InvestAmountPerAddress[msg.sender]);
             sendTokenInWithdraw(msg.sender, InvestAmountPerAddress[msg.sender], tokenByInterest);
             require(manager.emitGrowdropActionEvent(msg.sender, tokenByInterest, now, 3, InvestAmountPerAddress[msg.sender]));
         }
@@ -209,7 +215,7 @@ contract Growdrop {
         if(DonateId==0) {
             require(GrowdropToken.transfer(To, GrowdropTokenAmount));
         } else {
-            manager.DonateToken().mint(msg.sender, Beneficiary, address(Token), TokenAmount, DonateId);
+            manager.DonateToken().mint(msg.sender, Beneficiary, address(Token), GrowdropTokenAmount, DonateId);
         }
     }
     

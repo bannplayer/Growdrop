@@ -26,13 +26,15 @@ contract Tokenswap {
 
     mapping (address => bool) CheckTokenAddress;
     
-    constructor (address uniswapFactoryAddress, address kyberNetworkProxyAddress, uint256 kyberSwapMinimum) public {
+    constructor (address GrowdropManagerAddress, address uniswapFactoryAddress, address kyberNetworkProxyAddress, address tokenAddress1, address tokenAddress2, uint256 kyberSwapMinimum) public {
         Owner=msg.sender;
-        //UniswapFactory = UniswapFactoryInterface(0xD3E51Ef092B2845f10401a0159B2B96e8B6c3D30);
-        //KyberNetworkProxy = KyberNetworkProxyInterface(0x692f391bCc85cefCe8C237C01e1f636BbD70EA4D);
-
+        
+        GrowdropManager = GrowdropManagerInterface(GrowdropManagerAddress);
         UniswapFactory = UniswapFactoryInterface(uniswapFactoryAddress);
         KyberNetworkProxy = KyberNetworkProxyInterface(kyberNetworkProxyAddress);
+        CheckTokenAddress[tokenAddress1]=true;
+        CheckTokenAddress[tokenAddress2]=true;
+        
         KyberSwapMinimum = kyberSwapMinimum;
         
         KyberEthToken = EIP20Interface(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -152,10 +154,7 @@ contract Tokenswap {
                 }
                 
                 changeTokenToEth_AddLiquidity_Transfer(minConversionRate, lowerTokenAmount, lowerEthAmount, min_liquidity, max_token);
-                
-                if(KyberSwapMinimum>=lowerEthAmount) {
-                    address(uint160(Beneficiary)).transfer(KyberSwapMinimum-lowerEthAmount);
-                }
+
                 require(EthSwapToken.transfer(Beneficiary, EthSwapTokenAmount-lowerTokenAmount));
                 require(UniswapAddPoolToken.transfer(Beneficiary, UniswapAddPoolTokenAmount-max_token));
             } else {
@@ -186,13 +185,13 @@ contract Tokenswap {
         
         uint256 approximateEth = MulAndDiv(tokenAmount,minConversionRate,Precision);
         uint256 reapproximateEth=ethAmount*2;
-        require(reapproximateEth>=ethAmount);
+        require(reapproximateEth>ethAmount);
         
         tokenAmount = MulAndDiv(Sub(reapproximateEth,approximateEth), Precision, precisionMinConversionRate);
         (minConversionRate,slippageRate) = KyberNetworkProxy.getExpectedRate(ethSwapToken, KyberEthToken, tokenAmount);
         reapproximateEth=MulAndDiv(tokenAmount, minConversionRate, Precision);
         
-        if(slippageRate==0 || reapproximateEth<=KyberSwapMinimum) {
+        if(slippageRate==0 || reapproximateEth<KyberSwapMinimum) {
             return (0, 0);
         }
         return (minConversionRate, tokenAmount);
@@ -214,7 +213,7 @@ contract Tokenswap {
     
     function getUniswapLiquidityPool (address tokenAddress) public view returns (uint256, uint256) {
         address uniswapExchangeAddress = UniswapFactory.getExchange(tokenAddress);
-        if(uniswapExchangeAddress == address(0x0)) {
+        if(uniswapExchangeAddress==address(0x0)) {
             return (0,0);
         }
         return (uniswapExchangeAddress.balance, EIP20Interface(tokenAddress).balanceOf(uniswapExchangeAddress));
@@ -222,7 +221,7 @@ contract Tokenswap {
     
     function changeTokenToEth_AddLiquidity_Transfer(uint256 minConversionRate, uint256 ethSwapTokenAmount, uint256 ethAmount, uint256 liquidity, uint256 max_token) private {
         require(EthSwapToken.approve(address(KyberNetworkProxy), ethSwapTokenAmount));
-        uint destAmount = KyberNetworkProxy.swapTokenToEther(EthSwapToken, ethSwapTokenAmount, minConversionRate);
+        uint256 destAmount = KyberNetworkProxy.swapTokenToEther(EthSwapToken, ethSwapTokenAmount, minConversionRate);
         address(uint160(Beneficiary)).transfer(destAmount-ethAmount);
         
         require(UniswapAddPoolToken.approve(address(UniswapAddPoolTokenExchange),max_token));
