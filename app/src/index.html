@@ -24,9 +24,59 @@
     <p>SimpleToken uniswap token pool : <strong class="UniswapSimpleTokenTokenPool">loading...</strong> SimpleToken</p>
 
     <p>Kyber Dai to eth (per 1 Dai) : <strong class="KyberDaiToEth">loading...</strong> ETH</p>
-    <p>Current Interest Kyber Dai to eth : <strong class="CurrentDaiToEth">loading...</strong> ETH</p>
+    <p>Current Interest Kyber Dai to eth (assume Kyber, Compound -> 1 : 1) : <strong class="CurrentDaiToEth">loading...</strong> ETH</p>
 
     <p id="status"></p>
+
+    <h1>Add Donate Label To Ipfs And Contract</h1>
+    <input type='file' id="IpfsFileAdd"/><br/>
+
+    <h1>Kyberswap Eth To Dai</h1>
+    <label for="KyberswapEthToTokenAmount">Amount:</label>
+    <input type="text" id="KyberswapEthToTokenAmount" placeholder="e.g. 95" />
+    <button onclick="App.KyberswapEthToToken()">Kyberswap</button>
+
+    <h1>Uniswap KyberDai To Compound Dai (not cDai)</h1>
+    <label for="UniswapTokenAmount">Amount:</label>
+    <input type="text" id="UniswapTokenAmount" placeholder="e.g. 95" />
+    <button onclick="App.UniswapToken()">Uniswap</button>
+
+    <h1>Get Expected Kyberswap amount</h1>
+    <label for="GetExpectedAmountEthOrDai">To Eth or Dai</label>
+    <input
+      type="text"
+      id="GetExpectedAmountEthOrDai"
+      placeholder="true to eth or false to dai"
+    />
+    <label for="GetExpectedAmountAmount">Amount:</label>
+    <input type="text" id="GetExpectedAmountAmount" placeholder="e.g. 95" />
+    <button onclick="App.GetExpectedAmount()">Get Expected Amount</button>
+
+    <h1>Get Donated Token Amount</h1>
+    <label for="DonateInfoToTokenAmountTo">Donated To</label>
+    <input
+      type="text"
+      id="DonateInfoToTokenAmountTo"
+      placeholder="address of beneficiary"
+    />
+    <label for="DonateInfoToTokenAmountDonateId">Donate Label Id</label>
+    <input type="text" id="DonateInfoToTokenAmountDonateId" placeholder="e.g. 3" />
+    <button onclick="App.DonateInfoToTokenAmount()">Get Donated Token Amount</button>
+
+    <h1>Get Owner Of Donate Label Id</h1>
+    <label for="DonateIdOwnerDonateId">Donate Label Id</label>
+    <input type="text" id="DonateIdOwnerDonateId" placeholder="e.g. 3" />
+    <button onclick="App.DonateIdOwner()">Get Owner Of Donate Label Id</button>
+
+    <h1>Get Ipfshash Of Donate Label Id</h1>
+    <label for="GetMultihashDonateId">Donate Label Id</label>
+    <input type="text" id="GetMultihashDonateId" placeholder="e.g. 3" />
+    <button onclick="App.GetMultihash()">Get Ipfshash Of Donate Label Id</button>
+
+    <h1>Get Donate Label Id Of Ipfshash</h1>
+    <label for="MultihashToDonateIdIpfshash">Ipfshash</label>
+    <input type="text" id="MultihashToDonateIdIpfshash" placeholder="e.g. Qm...." />
+    <button onclick="App.MultihashToDonateId()">Get Donate Label Id Of Ipfshash</button>
 
     <h1>Mint SimpleToken</h1>
     <button onclick="App.SimpleTokenMint()">Mint</button>
@@ -82,6 +132,13 @@
       type="text"
       id="ToUniswapInterestRate"
       placeholder="bigger than 0, smaller than 100"
+    />
+
+    <label for="NewGrowdropDonateId">Donate Label Id</label>
+    <input
+      type="text"
+      id="NewGrowdropDonateId"
+      placeholder="if not donate, 0"
     />
 
     <button onclick="App.NewGrowdrop()">New Growdrop Contract</button>
