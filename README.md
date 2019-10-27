@@ -65,7 +65,7 @@ the interest generated there is raised to the donated foundation. Supporters wil
 ERC-721-based donate certificates and principals. This will help to realize a donating model
 that minimizes risk through principal guarantees. A simple flowchart of Donation follows.
 
-![690x387](./readme_image3.png)
+![690x387](./readme_image3.PNG)
 
 The Donation certificate can also be used in media, meetups and conferences. Supporter's
 Donation certificate is transferable and its use is unlimited depending on the project.
