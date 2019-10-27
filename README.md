@@ -55,6 +55,26 @@ If the initial token project is not listed or there is no use, the token from Gr
 
 Listed ETH / Tokens are priced according to the size of the pool, Growdrop's supporters can make exchange or add pool by putting the funded tokens and ETH into the liquidity pool.
 
+# Donation
+Donation has so far been donated through third parties. Donation is done with good intentions
+but can be used in a malicious way. It is also difficult to ensure that the funding is funded
+properly, unless the financial situation of each foundation is transparent.
+Growdrop supports not only token distribution but also Donation. The Donation model is
+similar to the token distribution model, where supporters secure tokens in Growdrop so that
+the interest generated there is raised to the donated foundation. Supporters will receive
+ERC-721-based donate certificates and principals. This will help to realize a donating model
+that minimizes risk through principal guarantees. A simple flowchart of Donation follows.
+
+![690x387](./readme_image3.png)
+
+The Donation certificate can also be used in media, meetups and conferences. Supporter's
+Donation certificate is transferable and its use is unlimited depending on the project.
+In the traditional Donation model, users lose their principals, which leads to reliability issues
+for each foundation.
+This can change the stagnant support culture through the support of Growdrop. The merit of
+principal guarantees allows anyone to feel free to supporter, and through decentralized
+Donation, the financial inclusion of the real world can be expanded.
+
 # Limitation of Growdrop
 • The DeFi ecosystem is still in its infancy and there are risks that can have a big impact.
 
