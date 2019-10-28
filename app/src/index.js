@@ -689,7 +689,7 @@ const App = {
     $(document).find('.GrowdropAmountdisplay').text(App.withDecimal(GrowdropData_value[2]));
 
     const GrowdropOver_value = GrowdropData_value[7];
-    if(GrowdropOver_value) {
+    if(GrowdropOver_value && App.withDecimal(GrowdropData_value[5])>0) {
       const UserData_value = await App.GetUserDataCall(App.GrowdropCall, App.Growdrop._address, App.account);
       $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
       $(document).find('.TotalInterestdisplay').text(
