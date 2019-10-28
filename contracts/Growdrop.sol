@@ -224,6 +224,11 @@ contract Growdrop {
         if(!GrowdropOver) {
             
             GrowdropOver=true;
+            if(TotalCTokenAmount==0) {
+                require(GrowdropToken.transfer(Beneficiary, GrowdropTokenAmount+ToUniswapTokenAmount));
+                require(manager.emitGrowdropActionEvent(address(0x0), 0, now, 6, 0));
+                return;
+            }
             address owner=manager.Owner();
             
             require(CToken.transfer(owner, CToken.balanceOf(address(this))-TotalCTokenAmount));
