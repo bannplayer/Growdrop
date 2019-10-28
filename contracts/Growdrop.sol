@@ -63,6 +63,7 @@ contract Growdrop {
     bool public GrowdropStart;
     
     uint256 public DonateId;
+    uint256 constant Minimum=10**14;
     
     //makes Growdrop contract (not start)
     constructor(
@@ -87,7 +88,7 @@ contract Growdrop {
         manager=GrowdropManagerInterface(msg.sender);
         
         require(_ToUniswapInterestRate>0 && _ToUniswapInterestRate<98);
-        require(_ToUniswapTokenAmount>1000000000 && _GrowdropAmount>1000000000);
+        require(_ToUniswapTokenAmount>Minimum && _GrowdropAmount>Minimum);
         require(_GrowdropAmount+_ToUniswapTokenAmount>_ToUniswapTokenAmount);
         ToUniswapTokenAmount=_ToUniswapTokenAmount;
         ToUniswapInterestRate=_ToUniswapInterestRate;
@@ -118,7 +119,7 @@ contract Growdrop {
         require(GrowdropStart);
         require(now<GrowdropEndTime);
         require(msg.sender!=Beneficiary);
-        require(Amount>0);
+        require(Amount>Minimum);
         
         require(Token.transferFrom(msg.sender, address(this), Amount));
         
@@ -149,7 +150,7 @@ contract Growdrop {
         require(GrowdropStart);
         require(now<GrowdropEndTime);
         require(msg.sender!=Beneficiary);
-        require(Amount>0);
+        require(Amount>Minimum);
         
         InvestAmountPerAddress[msg.sender]=Sub(InvestAmountPerAddress[msg.sender],Amount);
         
