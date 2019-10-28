@@ -45,6 +45,7 @@ contract Growdrop {
     uint256 public TotalCTokenAmount;
     
     uint256 constant ConstVal=10**18;
+    //should be 10**15, only for kovan
     
     //exchangeRateStored value when Growdrop ends
     uint256 public ExchangeRateOver;
@@ -132,10 +133,10 @@ contract Growdrop {
         require(CToken.mint(Amount)==0);
         
         
-        uint256 BalanceDif = CToken.balanceOf(address(this))-beforeBalance;
+        uint256 BalanceDif = Sub(CToken.balanceOf(address(this)),beforeBalance);
         require(BalanceDif>0);
         
-        CTokenPerAddress[msg.sender]+=BalanceDif;
+        CTokenPerAddress[msg.sender]=Add(CTokenPerAddress[msg.sender], BalanceDif);
         TotalCTokenAmount=Add(TotalCTokenAmount, BalanceDif);
         
         if(!manager.CheckUserJoinedGrowdrop(address(this),msg.sender)) {
@@ -152,7 +153,7 @@ contract Growdrop {
         
         InvestAmountPerAddress[msg.sender]=Sub(InvestAmountPerAddress[msg.sender],Amount);
         
-        TotalMintedAmount-=Amount;
+        TotalMintedAmount=Sub(TotalMintedAmount, Amount);
         
         uint256 beforeBalance = CToken.balanceOf(address(this));
         
@@ -160,11 +161,10 @@ contract Growdrop {
         
         require(Token.transfer(msg.sender, Amount));
         
-        require(beforeBalance>CToken.balanceOf(address(this)));
-        uint256 BalanceDif = beforeBalance-CToken.balanceOf(address(this));
-        
-        CTokenPerAddress[msg.sender]-=BalanceDif;
-        TotalCTokenAmount-=BalanceDif;
+        uint256 BalanceDif = Sub(beforeBalance,CToken.balanceOf(address(this)));
+        require(BalanceDif>0);
+        CTokenPerAddress[msg.sender]=Sub(CTokenPerAddress[msg.sender], BalanceDif);
+        TotalCTokenAmount=Sub(TotalCTokenAmount,BalanceDif);
         
         require(manager.emitGrowdropActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 1, Amount));
     }
@@ -175,15 +175,17 @@ contract Growdrop {
         WithdrawOver[msg.sender]=true;
         
         EndGrowdrop();
+        if(TotalCTokenAmount==0) {
+            return;
+        }
         if(DonateId!=0) {
             ToUniswap=false;
         }
-        
         if(msg.sender==Beneficiary) {
             uint256 OwnerFee=MulAndDiv(TotalInterestOver, 3, 100);
             if(ToUniswap) {
                 uint256 ToUniswapInterestRateCalculated = MulAndDiv(TotalInterestOver, ToUniswapInterestRate, 100);
-                require(Token.transfer(Beneficiary, TotalInterestOver-ToUniswapInterestRateCalculated-OwnerFee));
+                require(Token.transfer(Beneficiary, Sub(Sub(TotalInterestOver,ToUniswapInterestRateCalculated),OwnerFee)));
                 
                 require(Token.approve(address(manager.Tokenswap()), ToUniswapInterestRateCalculated));
                 uint256 swappedTokenAmount = manager.Tokenswap().uniswapToken(address(Token),address(KyberToken),ToUniswapInterestRateCalculated);
@@ -193,9 +195,9 @@ contract Growdrop {
                 manager.Tokenswap().addPoolToUniswap(address(KyberToken), address(GrowdropToken), Beneficiary, swappedTokenAmount, ToUniswapTokenAmount);
             } else {
                 if(DonateId==0) {
-                    sendTokenInWithdraw(Beneficiary, TotalInterestOver-OwnerFee, ToUniswapTokenAmount);
+                    sendTokenInWithdraw(Beneficiary, Sub(TotalInterestOver,OwnerFee), ToUniswapTokenAmount);
                 } else {
-                    Token.transfer(Beneficiary, TotalInterestOver-OwnerFee);
+                    Token.transfer(Beneficiary, Sub(TotalInterestOver,OwnerFee));
                 }
             }
             require(Token.transfer(manager.Owner(), OwnerFee));
@@ -223,22 +225,22 @@ contract Growdrop {
         if(!GrowdropOver) {
             
             GrowdropOver=true;
-            if(TotalCTokenAmount==0) {
-                require(GrowdropToken.transfer(Beneficiary, GrowdropTokenAmount+ToUniswapTokenAmount));
-                require(manager.emitGrowdropActionEvent(address(0x0), 0, now, 6, 0));
-                return;
-            }
             address owner=manager.Owner();
             
-            require(CToken.transfer(owner, CToken.balanceOf(address(this))-TotalCTokenAmount));
+            require(CToken.transfer(owner, Sub(CToken.balanceOf(address(this)),TotalCTokenAmount)));
             
             ExchangeRateOver = CToken.exchangeRateCurrent();
-            require(CToken.redeem(TotalCTokenAmount)==0);
+
+            if(TotalCTokenAmount==0) {
+                require(GrowdropToken.transfer(Beneficiary, Add(GrowdropAmount, ToUniswapTokenAmount)));
+            } else {
+                require(CToken.redeem(TotalCTokenAmount)==0);
+            }
             
             uint256 calculatedBalance = MulAndDiv(TotalCTokenAmount, ExchangeRateOver, ConstVal);
             
-            require(Token.transfer(owner, Token.balanceOf(address(this))-calculatedBalance));
-            TotalInterestOver = calculatedBalance-TotalMintedAmount;
+            require(Token.transfer(owner, Sub(Token.balanceOf(address(this)),calculatedBalance)));
+            TotalInterestOver = Sub(calculatedBalance,TotalMintedAmount);
             
             require(manager.emitGrowdropActionEvent(address(0x0), 0, now, 6, 0));
         }
