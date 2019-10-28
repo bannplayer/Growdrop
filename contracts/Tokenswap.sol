@@ -137,7 +137,7 @@ contract Tokenswap {
             max_token = Add(MulAndDiv(TokenToEthAmount, token_reserve, eth_reserve),1);
             min_liquidity = MulAndDiv(TokenToEthAmount, total_liquidity, eth_reserve);
             if(max_token>UniswapAddPoolTokenAmount) {
-                uint256 lowerEthAmount = MulAndDiv(UniswapAddPoolTokenAmount-1, eth_reserve, token_reserve);
+                uint256 lowerEthAmount = MulAndDiv(Sub(UniswapAddPoolTokenAmount,1), eth_reserve, token_reserve);
                 max_token = Add(MulAndDiv(lowerEthAmount, token_reserve, eth_reserve),1);
                 min_liquidity = MulAndDiv(lowerEthAmount, total_liquidity, eth_reserve);
                 
