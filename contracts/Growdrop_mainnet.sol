@@ -44,7 +44,6 @@ contract Growdrop {
     uint256 public TotalCTokenAmount;
     
     uint256 constant ConstVal=10**18;
-    //should be 10**15, only for kovan
     
     //exchangeRateStored value when Growdrop ends
     uint256 public ExchangeRateOver;
