@@ -83,6 +83,10 @@ const App = {
     return String(App.toBigInt(number).divide(new bigdecimal.BigDecimal("1000000000000000000")));
   },
 
+  withCTokenDecimal: function(number) {
+    return String(App.toBigInt(number).divide(new bigdecimal.BigDecimal("100000000")));
+  },
+
   toBigInt: function(number) {
     return new bigdecimal.BigDecimal(String(number));
   },
@@ -258,8 +262,8 @@ const App = {
   Growdrop token amount to uniswap pool (Number)
   Growdrop interest percentage to uniswap pool (Number 1~99)
   */
-  GetGrowdropDataCall: async function(contractinstance, GrowdropAddress) {
-    return await contractinstance.methods.getGrowdropData(GrowdropAddress).call();
+  GetGrowdropDataCall: async function(contractinstance, GrowdropAddress, account) {
+    return await contractinstance.methods.getGrowdropData(GrowdropAddress).call({from:account});
   },
 
   /*
@@ -627,21 +631,6 @@ const App = {
     const KyberDAIbalance = await this.TokenBalanceOfCall(this.KyberDAI, App.account);
     const SimpleTokenbalance = await this.TokenBalanceOfCall(this.SimpleToken, App.account);
 
-    const DAIAllowance = await App.TokenAllowanceCall(App.DAI, App.account, App.Growdrop._address);
-    const KyberDAIAllowance = await App.TokenAllowanceCall(App.KyberDAI, App.account, App.Growdrop._address);    
-    const SimpleTokenAllowance = await App.TokenAllowanceCall(
-      App.SimpleToken, 
-      App.account, 
-      App.Growdrop._address
-    );
-
-    const expectedRate = await App.getExpectedRateCall(
-      App.KyberNetworkProxy,
-      App.KyberDAI._address, 
-      App.KyberEthTokenAddress, 
-      "1000000000000000000"
-    );
-
     const GetUniswapLiquidityPoolRes =await App.GetUniswapLiquidityPoolCall(
       App.Tokenswap, 
       App.SimpleToken._address
@@ -653,23 +642,14 @@ const App = {
     this.setElement_innerHTML(KyberDAIbalanceElement, KyberDAIbalance);
     const SimpleTokenbalanceElement = document.getElementsByClassName("SimpleTokenbalance")[0];
     this.setElement_innerHTML(SimpleTokenbalanceElement, SimpleTokenbalance);
-    const DAIAllowanceElement = document.getElementsByClassName("DAIAllowance")[0];
-    App.setElement_innerHTML(DAIAllowanceElement, DAIAllowance);
-    const KyberDAIAllowanceElement = document.getElementsByClassName("KyberDAIAllowance")[0];
-    App.setElement_innerHTML(KyberDAIAllowanceElement, KyberDAIAllowance);
-    const SimpleTokenAllowanceElement = document.getElementsByClassName("SimpleTokenAllowance")[0];
-    App.setElement_innerHTML(SimpleTokenAllowanceElement, SimpleTokenAllowance);
 
     const UniswapSimpleTokenEthPoolElement = document.getElementsByClassName("UniswapSimpleTokenEthPool")[0];
     App.setElement_innerHTML(UniswapSimpleTokenEthPoolElement, GetUniswapLiquidityPoolRes[0]);
     
     const UniswapSimpleTokenTokenPoolElement = document.getElementsByClassName("UniswapSimpleTokenTokenPool")[0];
     App.setElement_innerHTML(UniswapSimpleTokenTokenPoolElement, GetUniswapLiquidityPoolRes[1]);
-    
-    const DaiToEthElement = document.getElementsByClassName("KyberDaiToEth")[0];
-    App.setElement_innerHTML(DaiToEthElement, expectedRate[0]);
 
-    const GrowdropData_value = await App.GetGrowdropDataCall(App.GrowdropCall, App.Growdrop._address);
+    const GrowdropData_value = await App.GetGrowdropDataCall(App.GrowdropCall, App.Growdrop._address, App.account);
 
     if(GrowdropData_value[8]==false) {
       $(document).find('.GrowdropStatusdisplay').text("pending");
@@ -683,92 +663,12 @@ const App = {
     $(document).find('.Beneficiarydisplay').text(GrowdropData_value[1]);
     $(document).find('.GrowdropStartTimedisplay').text(new Date(parseInt(GrowdropData_value[3]*1000)));
     $(document).find('.GrowdropEndTimedisplay').text(new Date(parseInt(GrowdropData_value[4]*1000)));
-    $(document).find('.GrowdropPerioddisplay').text(
-      (parseInt(GrowdropData_value[4]*1000)-parseInt(GrowdropData_value[3]*1000))
-    );
     $(document).find('.GrowdropAmountdisplay').text(App.withDecimal(GrowdropData_value[2]));
 
-    const GrowdropOver_value = GrowdropData_value[7];
-    if(GrowdropOver_value && App.withDecimal(GrowdropData_value[5])>0) {
-      const UserData_value = await App.GetUserDataCall(App.GrowdropCall, App.Growdrop._address, App.account);
-      $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
-      $(document).find('.TotalInterestdisplay').text(
-        App.withDecimal(
-          String(
-            App.toBigInt(GrowdropData_value[5])
-            .subtract(App.toBigInt(GrowdropData_value[6]))
-          )
-        )
-      );
-
-      const CurrentDaiToEthElement = document.getElementsByClassName("CurrentDaiToEth")[0];
-      App.setElement_innerHTML(CurrentDaiToEthElement, 
-        App.toBigInt(expectedRate[0])
-        .multiply(
-          App.toBigInt(GrowdropData_value[5])
-          .subtract(App.toBigInt(GrowdropData_value[6]))
-          )
-        .divide(App.toBigInt(1000000000000000000)));
-
-      $(document).find('.TotalBalancedisplay').text(App.withDecimal(GrowdropData_value[5]));
-
-      $(document).find('.TotalPerAddressdisplay').text(App.withDecimal(UserData_value[1]));
-      $(document).find('.InvestAmountPerAddressdisplay').text(App.withDecimal(UserData_value[0]));
-      $(document).find('.InterestPerAddressdisplay').text(App.withDecimal(UserData_value[2]));
-      $(document).find('.InterestRatedisplay').text(App.withDecimal(UserData_value[3]));
-      $(document).find('.TokenByInterestdisplay').text(App.withDecimal(UserData_value[4]));
-    } else {
-      $(document).find('.TotalBalancedisplay').text(App.withDecimal(GrowdropData_value[5]));
-      $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
-
-      if(App.toBigInt(GrowdropData_value[5])<=App.toBigInt(GrowdropData_value[6])) {
-        $(document).find('.TotalInterestdisplay').text("wait for accrueinterest transaction");
-        $(document).find('.TotalPerAddressdisplay').text("wait for accrueinterest transaction");
-        $(document).find('.InvestAmountPerAddressdisplay').text("wait for accrueinterest transaction");
-        $(document).find('.InterestPerAddressdisplay').text("wait for accrueinterest transaction");
-        $(document).find('.InterestRatedisplay').text("wait for accrueinterest transaction");
-        $(document).find('.TokenByInterestdisplay').text("wait for accrueinterest transaction");
-      } else {
-        const TotalPerAddressres = await App.TotalPerAddressCall(App.Growdrop, App.account);
-        $(document).find('.TotalPerAddressdisplay').text(App.withDecimal(TotalPerAddressres));
-        
-        const InvestAmountPerAddressres = await App.InvestAmountPerAddressCall(App.Growdrop, App.account);
-        $(document).find('.InvestAmountPerAddressdisplay').text(App.withDecimal(InvestAmountPerAddressres));
-
-        if(App.toBigInt(TotalPerAddressres)<=App.toBigInt(InvestAmountPerAddressres)) {
-          $(document).find('.TotalInterestdisplay').text("wait for accrueinterest transaction");
-          $(document).find('.InterestPerAddressdisplay').text("wait for accrueinterest transaction");
-          $(document).find('.InterestRatedisplay').text("wait for accrueinterest transaction");
-          $(document).find('.TokenByInterestdisplay').text("wait for accrueinterest transaction");
-        } else {
-          const UserData_value = await App.GetUserDataCall(
-            App.GrowdropCall, 
-            App.Growdrop._address, 
-            App.account
-          );
-          $(document).find('.TotalInterestdisplay').text(
-            App.withDecimal(
-              String(
-                App.toBigInt(GrowdropData_value[5])
-                .subtract(App.toBigInt(GrowdropData_value[6]))
-              )
-            )
-          );
-          const CurrentDaiToEthElement = document.getElementsByClassName("CurrentDaiToEth")[0];
-          App.setElement_innerHTML(CurrentDaiToEthElement, 
-            App.toBigInt(expectedRate[0])
-            .multiply(
-              App.toBigInt(GrowdropData_value[5])
-              .subtract(App.toBigInt(GrowdropData_value[6]))
-              )
-            .divide(App.toBigInt(1000000000000000000)));
-          $(document).find('.InterestPerAddressdisplay').text(App.withDecimal(UserData_value[2]));
-          $(document).find('.InterestRatedisplay').text(App.withDecimal(UserData_value[3]));
-          $(document).find('.TokenByInterestdisplay').text(App.withDecimal(UserData_value[4]));
-        }
-      }
-    }
-
+    $(document).find('.TotalBalancedisplay').text(App.withCTokenDecimal(GrowdropData_value[5]));
+    $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
+    $(document).find('.TotalPerAddressdisplay').text(App.withCTokenDecimal(GrowdropData_value[11]));
+    $(document).find('.InvestAmountPerAddressdisplay').text(App.withDecimal(GrowdropData_value[12]));
   },
 
   refreshGrowdrop: async function() {
@@ -812,26 +712,22 @@ const App = {
   },
 
   approveDAI: async function() {
-    const amount = parseInt(document.getElementById("DAIamount").value);
-
     App.setStatus("Initiating approveDAI transaction... (please wait)");
     const approve_res = await App.TokenApproveTx(
       App.DAI, 
       App.Growdrop._address, 
-      String(amount), 
+      String("115792089237316195423570985008687907853269984665640564039457584007913129639935"), 
       App.account
     );
     App.setStatus(approve_res);
   },
 
   approveSimpleToken: async function() {
-    const amount = parseInt(document.getElementById("SimpleTokenamount").value);
-
     App.setStatus("Initiating approveSimpleToken transaction... (please wait)");
     const approve_res = await App.TokenApproveTx(
       App.SimpleToken, 
       App.Growdrop._address, 
-      String(amount), 
+      String("115792089237316195423570985008687907853269984665640564039457584007913129639935"), 
       App.account
     );
     App.setStatus(approve_res);
@@ -887,14 +783,14 @@ const App = {
     event.preventDefault();
     var ipfsId;
     App.setStatus("ipfs saving...");
-    App.ipfs.add([...event.target.files], { progress: (prog) => console.log(`received: ${prog}`) })
-    .then(function(response) {
+    await App.ipfs.add([...event.target.files], { progress: (prog) => console.log(`received: ${prog}`) })
+    .then(async function(response) {
       console.log(response)
       App.setStatus("ipfs pinning...");
       ipfsId = response[0].hash
-      return App.ipfs.pin.add(ipfsId)
-    }).then(function(response) {
-      App.CheckDonateIdAndSet(ipfsId);
+      return await App.ipfs.pin.add(ipfsId)
+    }).then(async function(response) {
+      await App.CheckDonateIdAndSet(ipfsId);
       console.log("https://ipfs.io/ipfs/"+ipfsId);
     }).catch((err) => {
       console.error(err)

@@ -14,17 +14,11 @@
     <button onclick="App.MetamaskLogin()">Use Metamask</button>
     <button onclick="App.TorusLogin()">Use Torus</button>
     <p>You have <strong class="DAIbalance">loading...</strong> DAI</p>
-    <p>You approved <strong class="DAIAllowance">loading...</strong> DAI to this growdrop contract</p>
     <p>You have <strong class="KyberDAIbalance">loading...</strong> Kyber DAI</p>
-    <p>You approved <strong class="KyberDAIAllowance">loading...</strong> Kyber DAI to this growdrop contract</p>
     <p>You have <strong class="SimpleTokenbalance">loading...</strong> SimpleToken</p>
-    <p>You approved <strong class="SimpleTokenAllowance">loading...</strong> SimpleToken to this growdrop contract</p>
 
     <p>SimpleToken uniswap eth pool : <strong class="UniswapSimpleTokenEthPool">loading...</strong> ETH</p>
     <p>SimpleToken uniswap token pool : <strong class="UniswapSimpleTokenTokenPool">loading...</strong> SimpleToken</p>
-
-    <p>Kyber Dai to eth (per 1 Dai) : <strong class="KyberDaiToEth">loading...</strong> ETH</p>
-    <p>Current Interest Kyber Dai to eth (assume Kyber, Compound -> 1 : 1) : <strong class="CurrentDaiToEth">loading...</strong> ETH</p>
 
     <p id="status"></p>
 
@@ -82,17 +76,9 @@
     <button onclick="App.SimpleTokenMint()">Mint</button>
 
     <h1>Approve DAI to Growdrop contract</h1>
-
-    <label for="DAIamount">Amount:</label>
-    <input type="text" id="DAIamount" placeholder="e.g. 95" />
-
     <button onclick="App.approveDAI()">Approve DAI</button>
 
     <h1>Approve SimpleToken to Growdrop contract</h1>
-
-    <label for="SimpleTokenamount">Amount:</label>
-    <input type="text" id="SimpleTokenamount" placeholder="e.g. 95" />
-
     <button onclick="App.approveSimpleToken()">Approve SimpleToken</button>
 
     <h1>New Growdrop Contract</h1>
@@ -155,9 +141,6 @@
   <div class="Beneficiarydiv">
     <strong>Beneficiary</strong>: <span class="Beneficiarydisplay">0x....</span>
   </div>
-  <div class="GrowdropPerioddiv">
-    <strong>Funding Period</strong>: <span class="GrowdropPerioddisplay">0</span>
-  </div>
   <div class="GrowdropStartTimediv">
     <strong>Funding Start Time</strong>: <span class="GrowdropStartTimedisplay">0</span>
   </div>
@@ -170,29 +153,17 @@
   </div>
 
   <div class="TotalBalancediv">
-    <strong>All balance (funds + interests) </strong>: <span class="TotalBalancedisplay">0</span>
+    <strong>All balance (funds + interests to cdai) </strong>: <span class="TotalBalancedisplay">0</span>
   </div>
   <div class="TotalMintedAmountdiv">
     <strong>All Funds</strong>: <span class="TotalMintedAmountdisplay">0</span>
   </div>
-  <div class="TotalInterestdiv">
-    <strong>All Interests</strong>: <span class="TotalInterestdisplay">0</span>
-  </div>
 
   <div class="TotalPerAddressdiv">
-    <strong>Your current balance (funds + interests) </strong>: <span class="TotalPerAddressdisplay">0</span>
+    <strong>Your current balance (funds + interests to cdai) </strong>: <span class="TotalPerAddressdisplay">0</span>
   </div>
   <div class="InvestAmountPerAddressdiv">
     <strong>Your funds</strong>: <span class="InvestAmountPerAddressdisplay">0</span>
-  </div>
-  <div class="InterestPerAddressdiv">
-    <strong>Your current interests </strong>: <span class="InterestPerAddressdisplay">0</span>
-  </div>
-  <div class="InterestRatediv">
-    <strong>Your current interest rate (your interests / all interests *10^18 ) </strong>: <span class="InterestRatedisplay">0</span>
-  </div>
-  <div class="TokenByInterestdiv">
-    <strong>Your current new token amount (your interest rate * all new token amount / 10^18 ) </strong>: <span class="TokenByInterestdisplay">0</span>
   </div>
 
   <div class="Mintdiv">
