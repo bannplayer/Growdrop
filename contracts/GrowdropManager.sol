@@ -22,6 +22,8 @@ contract GrowdropManager {
     event NewGrowdropContract(uint256 indexed _eventIdx, uint256 indexed _idx, address indexed _beneficiary, address _GrowdropAddress);
     
     event GrowdropAction(uint256 indexed _eventIdx, address indexed _Growdrop, address indexed _From, uint256 _Amount, uint256 _ActionTime, uint256 _ActionIdx);
+
+    event DonateAction(uint256 indexed _eventIdx, address indexed _From, address indexed _To, address supporter, address beneficiary, address _Token, uint256 _DonateId, uint256 _Amount, uint256 _ActionIdx);
     
     constructor () public {
         Owner=msg.sender;
@@ -52,6 +54,13 @@ contract GrowdropManager {
             TotalUserCount[msg.sender]+=1;
         } 
         emit GrowdropAction(EventIdx, msg.sender, From, Amount, ActionTime, ActionIdx);
+        return true;
+    }
+
+    function emitDonateActionEvent(address From, address To, address supporter, address beneficiary, address Token, uint256 DonateId, uint256 Amount, uint256 ActionIdx) public returns (bool) {
+        require(msg.sender==address(DonateToken));
+        EventIdx+=1;
+        emit DonateAction(EventIdx, From, To, supporter, beneficiary, Token, DonateId, Amount, ActionIdx);
         return true;
     }
     
