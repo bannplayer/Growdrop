@@ -83,7 +83,7 @@ Donation, the financial inclusion of the real world can be expanded.
 • Due to the current Lending Protocol, interest volatility can be very high.
 
 # Difference from other Interest rate donate projects
-• Interest rate donate models must bring in a lot of money to generate a lot of interest. In the case of PIP, the price per token is fixed and the token is issued according to the amount of interest generated. There is no limit on the number of token issuances here, and the tokens of the project can be issued indefinitely. As a result, if the supply continues to increase in the secondary market, the corresponding token market will collapse. This has a significant limitation on the token economy of the project. The Growdrop model has no token price and lockup period, and the project can flexibly set the number of tokens to proceed with the existing token economy plan. Supporters can make deposits and withdrawals autonomously depending on the project situation.
+Interest rate donate models must bring in a lot of money to generate a lot of interest. In the case of PIP, the price per token is fixed and the token is issued according to the amount of interest generated. There is no limit on the number of token issuances here, and the tokens of the project can be issued indefinitely. As a result, if the supply continues to increase in the secondary market, the corresponding token market will collapse. This has a significant limitation on the token economy of the project. The Growdrop model has no token price and lockup period, and the project can flexibly set the number of tokens to proceed with the existing token economy plan. Supporters can make deposits and withdrawals autonomously depending on the project situation.
 
 # Conclusion
 Since DeFi's market is still a new market, there are risks that can cause side effects from interest volatility, and it is still active only in the Ethereum ecosystem. Through Growdrop open source projects can get seed funding and form a community culture with supporters who are naturally valued rather than very expensive financing such as ICO and IEO. Growdrop is a new funding model. This makes Growdrop a new option for contributing to open source projects and breaking the vicious circle of financing.
@@ -98,3 +98,29 @@ EIP1789:https://github.com/ethereum/EIPs/issues/1789
 Funding the Evolution of Blockchains:  https://medium.com/@FEhrsam/funding-the-evolution-of-blockchains-87d160988481
 
 *Please give us feedback as it is a new defi model !!
+
+
+# Test with metamask and torus
+Write your mnemonic key to .secret.
+
+Write your infura project key to truffle-config.js kovan network endpoint.
+
+In project root directory
+## truffle migrate --network kovan
+## cd app && npm install
+## npm run dev
+Open localhost:8080 with chrome browser.
+
+Click metamask login button.
+
+In browser console
+## App.GrowdropManager.methods.setDonateToken(App.DonateToken._address).send({from:App.account});
+## App.GrowdropManager.methods.setTokenswap(App.Tokenswap._address).send({from:App.account});
+
+New growdrop can only be done by mnemonic's first account. (deployer)
+
+Starting growdrop needs to be approved before by SimpleToken.
+
+Starting growdrop can only be done by beneficiary. 
+
+Minting needs to be approved before by DAI.
