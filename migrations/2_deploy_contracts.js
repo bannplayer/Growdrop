@@ -1,4 +1,4 @@
-const GrowdropManager = artifacts.require("GrowdropManager");
+const Growdrop = artifacts.require("Growdrop");
 const Tokenswap = artifacts.require("Tokenswap");
 const DonateToken = artifacts.require("DonateToken");
 const GrowdropCall = artifacts.require("GrowdropCall");
@@ -23,13 +23,13 @@ module.exports = function(deployer, network) {
       kyberminimum="1000000000000000";
   }
 
-  deployer.deploy(GrowdropCall)
+  deployer.deploy(Growdrop)
   .then(function() {
-    return deployer.deploy(GrowdropManager);
+    return deployer.deploy(GrowdropCall, Growdrop.address);
   }).then(function() {
     return deployer.deploy(
       Tokenswap, 
-      GrowdropManager.address,
+      Growdrop.address,
       uniswapfactory, 
       kybernetworkproxy, 
       dai,
@@ -37,6 +37,6 @@ module.exports = function(deployer, network) {
       kyberminimum
     );
   }).then(function() {
-    return deployer.deploy(DonateToken, GrowdropManager.address);
+    return deployer.deploy(DonateToken, Growdrop.address);
   })
 }
