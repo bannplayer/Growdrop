@@ -1,70 +1,84 @@
 //for mainnet
 pragma solidity ^0.5.11;
 
+import "./DonateTokenInterface.sol";
 import "./EIP20Interface.sol";
 import "./CTokenInterface.sol";
-import "./GrowdropManagerInterface.sol";
 import "./UniswapFactoryInterface.sol";
-import "./UniswapExchangeInterface.sol";
 import "./KyberNetworkProxyInterface.sol";
 import "./TokenswapInterface.sol";
 
 contract Growdrop {
+    address public owner;
+    mapping(address => bool) public CheckOwner;
+    DonateTokenInterface public DonateToken;
+    TokenswapInterface public Tokenswap;
+    
+    uint256 public GrowdropCount;
+    uint256 public EventIdx;
 
-    GrowdropManagerInterface public manager;
+    mapping(uint256 => address) public Beneficiary;
+    mapping(uint256 => mapping(address => uint256)) public CTokenPerAddress;
+    mapping(uint256 => mapping(address => uint256)) public InvestAmountPerAddress;
+    mapping(uint256 => mapping(address => bool)) public WithdrawOver;
+    mapping(uint256 => uint256) public GrowdropAmount;
+    mapping(uint256 => uint256) public GrowdropStartTime;
+    mapping(uint256 => uint256) public GrowdropEndTime;
+    mapping(uint256 => uint256) public TotalMintedAmount;
+    mapping(uint256 => uint256) public TotalCTokenAmount;
+    mapping(uint256 => uint256) public ExchangeRateOver;
+    mapping(uint256 => uint256) public TotalInterestOver;
+    mapping(uint256 => uint256) public ToUniswapTokenAmount;
+    mapping(uint256 => uint256) public ToUniswapInterestRate;
+    mapping(uint256 => bool) public GrowdropOver;
+    mapping(uint256 => bool) public GrowdropStart;
+    mapping(uint256 => uint256) public DonateId;
+    mapping(uint256 => EIP20Interface) public Token;
+    mapping(uint256 => EIP20Interface) public GrowdropToken;
+    mapping(uint256 => CTokenInterface) public CToken;
     
-    EIP20Interface public Token;
-    
-    EIP20Interface public GrowdropToken;
-    
-    CTokenInterface public CToken;
-    
-    address public Beneficiary;
-    
-    //ctoken balanceOf per address
-    mapping(address => uint256) public CTokenPerAddress;
-    
-    //minted token balance per address
-    mapping(address => uint256) public InvestAmountPerAddress;
-    
-    //checks address withdraw
-    mapping(address => bool) public WithdrawOver;
-    
-    //token amount to give investors
-    uint256 public GrowdropAmount;
-    
-    //start time of Growdrop
-    uint256 public GrowdropStartTime;
-    
-    //end time of mint and redeem
-    uint256 public GrowdropEndTime;
-    
-    //total minted token balance
-    uint256 public TotalMintedAmount;
-    uint256 public TotalCTokenAmount;
-    
-    uint256 constant ConstVal=10**18;
-    
-    //exchangeRateStored value when Growdrop ends
-    uint256 public ExchangeRateOver;
-    
-    //total interests Growdrop contracts get when Growdrop ends
-    uint256 public TotalInterestOver;
-    
-    uint256 public ToUniswapTokenAmount;
-    uint256 public ToUniswapInterestRate;
-    
-    //whether Growdrop is over
-    bool public GrowdropOver;
-
-    //whether Growdrop is started
-    bool public GrowdropStart;
-    
-    uint256 public DonateId;
     uint256 constant Minimum=10**14;
+    uint256 constant ConstVal=10**18;
+    uint256 public AllCTokenAmount;
+    uint256 public AllInvestAmount;
+
+
+    mapping(address => uint256) public TotalUserInvestedAmount;
+    mapping(uint256 => uint256) public TotalUserCount;
+    mapping(uint256 => mapping(address => bool)) public CheckUserJoinedGrowdrop;
     
-    //makes Growdrop contract (not start)
-    constructor(
+    event NewGrowdropContract(
+        uint256 indexed _EventIdx,
+        uint256 indexed _Idx,
+        address indexed _Beneficiary
+    );
+    
+    event GrowdropAction(
+        uint256 indexed _EventIdx,
+        address indexed _From,
+        uint256 _Amount1,
+        uint256 _Amount2,
+        uint256 _ActionIdx
+    );
+
+    event DonateAction(
+        uint256 indexed _EventIdx,
+        address indexed _From,
+        address indexed _To,
+        address _Supporter,
+        address _Beneficiary,
+        address _Token,
+        uint256 _DonateId,
+        uint256 _Amount,
+        uint256 _ActionIdx
+    );
+
+    constructor () public {
+        owner = msg.sender;
+        CheckOwner[msg.sender] = true;
+    }
+
+    function newGrowdrop(
         address TokenAddr,
         address CTokenAddr,
         address GrowdropTokenAddr,
@@ -74,175 +88,213 @@ contract Growdrop {
         uint256 _ToUniswapTokenAmount,
         uint256 _ToUniswapInterestRate,
         uint256 _DonateId) public {
-        Token = EIP20Interface(TokenAddr);
-        CToken = CTokenInterface(CTokenAddr);
-        GrowdropToken = EIP20Interface(GrowdropTokenAddr);
-        Beneficiary = BeneficiaryAddr;
-        GrowdropAmount = _GrowdropAmount;
+
+        require(CheckOwner[msg.sender]);
+        require(DonateToken.DonateIdOwner(_DonateId)==BeneficiaryAddr || _DonateId==0);
+        GrowdropCount += 1;
+
+        Token[GrowdropCount] = EIP20Interface(TokenAddr);
+        CToken[GrowdropCount] = CTokenInterface(CTokenAddr);
+        GrowdropToken[GrowdropCount] = EIP20Interface(GrowdropTokenAddr);
+        Beneficiary[GrowdropCount] = BeneficiaryAddr;
+        GrowdropAmount[GrowdropCount] = _GrowdropAmount;
         
         require(GrowdropPeriod>0);
-        GrowdropEndTime = GrowdropPeriod;
-        
-        manager = GrowdropManagerInterface(msg.sender);
+        GrowdropEndTime[GrowdropCount] = GrowdropPeriod;
         
         require(_ToUniswapInterestRate>0 && _ToUniswapInterestRate<98);
         require(_ToUniswapTokenAmount>Minimum && _GrowdropAmount>Minimum);
         require(_GrowdropAmount+_ToUniswapTokenAmount>_ToUniswapTokenAmount);
-        ToUniswapTokenAmount = _ToUniswapTokenAmount;
-        ToUniswapInterestRate = _ToUniswapInterestRate;
+        ToUniswapTokenAmount[GrowdropCount] = _ToUniswapTokenAmount;
+        ToUniswapInterestRate[GrowdropCount] = _ToUniswapInterestRate;
         
-        DonateId = _DonateId;
+        DonateId[GrowdropCount] = _DonateId;
+
+        EventIdx += 1;
+        emit NewGrowdropContract(EventIdx, GrowdropCount, BeneficiaryAddr);
     }
     
-    function StartGrowdrop() public {
-        require(msg.sender==Beneficiary);
-        require(!GrowdropStart);
-        GrowdropStart = true;
+    function StartGrowdrop(uint256 _GrowdropCount) public {
+        require(msg.sender==Beneficiary[_GrowdropCount]);
+        require(!GrowdropStart[_GrowdropCount]);
+        GrowdropStart[_GrowdropCount] = true;
         
-        if(DonateId==0) {
-            require(GrowdropToken.transferFrom(msg.sender, address(this), GrowdropAmount+ToUniswapTokenAmount));
+        if(DonateId[_GrowdropCount]==0) {
+            require(GrowdropToken[_GrowdropCount].transferFrom(msg.sender, address(this), GrowdropAmount[_GrowdropCount]+ToUniswapTokenAmount[_GrowdropCount]));
         }
 
-        GrowdropStartTime = now;
+        GrowdropStartTime[_GrowdropCount] = now;
         
-        GrowdropEndTime = Add(GrowdropEndTime,now);
+        GrowdropEndTime[_GrowdropCount] = Add(GrowdropEndTime[_GrowdropCount], now);
         
-        require(manager.emitGrowdropActionEvent(address(0x0), 0, now, 5, 0));
+        EventIdx += 1;
+        emit GrowdropAction(EventIdx, address(0x0), 0, 0, 5);
     }
     
-    function Mint(uint256 Amount) public {
-        require(GrowdropStart);
-        require(now<GrowdropEndTime);
-        require(msg.sender!=Beneficiary);
+    function Mint(uint256 _GrowdropCount, uint256 Amount) public {
+        require(GrowdropStart[_GrowdropCount]);
+        require(now<GrowdropEndTime[_GrowdropCount]);
+        require(msg.sender!=Beneficiary[_GrowdropCount]);
         require(Amount>Minimum);
         
-        uint256 _exchangeRateCurrent = CToken.exchangeRateCurrent();
+        uint256 _exchangeRateCurrent = CToken[_GrowdropCount].exchangeRateCurrent();
         uint256 _ctoken;
         uint256 _toMinAmount;
         (_ctoken, _toMinAmount) = toMinAmount(Amount, _exchangeRateCurrent);
-        require(Token.transferFrom(msg.sender, address(this), _toMinAmount));
-        require(Token.approve(address(CToken), _toMinAmount));
-        require(CToken.mint(_toMinAmount)==0);
-        
-        CTokenPerAddress[msg.sender] = Add(CTokenPerAddress[msg.sender], _ctoken);
-        TotalCTokenAmount = Add(TotalCTokenAmount, _ctoken);
 
-        InvestAmountPerAddress[msg.sender] = Add(InvestAmountPerAddress[msg.sender], _toMinAmount);
-        TotalMintedAmount = Add(TotalMintedAmount, _toMinAmount);
+        CTokenPerAddress[_GrowdropCount][msg.sender] = Add(CTokenPerAddress[_GrowdropCount][msg.sender], _ctoken);
+        TotalCTokenAmount[_GrowdropCount] = Add(TotalCTokenAmount[_GrowdropCount], _ctoken);
+        AllCTokenAmount = Add(AllCTokenAmount, _ctoken);
+
+        InvestAmountPerAddress[_GrowdropCount][msg.sender] = Add(InvestAmountPerAddress[_GrowdropCount][msg.sender], _toMinAmount);
+        TotalMintedAmount[_GrowdropCount] = Add(TotalMintedAmount[_GrowdropCount], _toMinAmount);
+        AllInvestAmount = Add(AllInvestAmount, _toMinAmount);
+
+        require(Token[_GrowdropCount].transferFrom(msg.sender, address(this), _toMinAmount));
+        require(Token[_GrowdropCount].approve(address(CToken[_GrowdropCount]), _toMinAmount));
+        require(CToken[_GrowdropCount].mint(_toMinAmount)==0);
         
-        if(!manager.CheckUserJoinedGrowdrop(address(this),msg.sender)) {
-            require(manager.emitGrowdropActionEvent(msg.sender, 0, now, 4, 0));
+        if(!CheckUserJoinedGrowdrop[_GrowdropCount][msg.sender]) {
+            CheckUserJoinedGrowdrop[_GrowdropCount][msg.sender] = true;
+            TotalUserCount[_GrowdropCount] += 1;
         }
-        require(manager.emitGrowdropActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 0, _toMinAmount));
+        TotalUserInvestedAmount[msg.sender] = Add(TotalUserInvestedAmount[msg.sender],_toMinAmount);
+        EventIdx += 1;
+        emit GrowdropAction(EventIdx, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], CTokenPerAddress[_GrowdropCount][msg.sender], 0);
     }
     
-    function Redeem(uint256 Amount) public {
-        require(GrowdropStart);
-        require(now<GrowdropEndTime);
-        require(msg.sender!=Beneficiary);
+    function Redeem(uint256 _GrowdropCount, uint256 Amount) public {
+        require(GrowdropStart[_GrowdropCount]);
+        require(now<GrowdropEndTime[_GrowdropCount]);
+        require(msg.sender!=Beneficiary[_GrowdropCount]);
         require(Amount>Minimum || Amount==0);
         
         if(Amount==0) {
-            Amount = InvestAmountPerAddress[msg.sender];
+            Amount = InvestAmountPerAddress[_GrowdropCount][msg.sender];
         }
 
-        uint256 _exchangeRateCurrent = CToken.exchangeRateCurrent();
+        uint256 _exchangeRateCurrent = CToken[_GrowdropCount].exchangeRateCurrent();
         uint256 _ctoken;
         uint256 _toMaxAmount;
         (_ctoken, _toMaxAmount) = toMaxAmount(Amount, _exchangeRateCurrent);
-        require(_ctoken<=MulAndDiv(InvestAmountPerAddress[msg.sender], ConstVal, _exchangeRateCurrent));
-        require(CToken.redeemUnderlying(_toMaxAmount)==0);
-        require(Token.transfer(msg.sender, _toMaxAmount));
-        
-        CTokenPerAddress[msg.sender] = Sub(CTokenPerAddress[msg.sender], _ctoken);
-        TotalCTokenAmount = Sub(TotalCTokenAmount,_ctoken);
+        require(_ctoken<=MulAndDiv(InvestAmountPerAddress[_GrowdropCount][msg.sender], ConstVal, _exchangeRateCurrent));
+
+        CTokenPerAddress[_GrowdropCount][msg.sender] = Sub(CTokenPerAddress[_GrowdropCount][msg.sender], _ctoken);
+        TotalCTokenAmount[_GrowdropCount] = Sub(TotalCTokenAmount[_GrowdropCount],_ctoken);
+        AllCTokenAmount = Sub(AllCTokenAmount, _ctoken);
 
         uint256 _toMinAmount;
         (,_toMinAmount) = toMinAmount(Amount, _exchangeRateCurrent);
 
-        InvestAmountPerAddress[msg.sender] = Sub(InvestAmountPerAddress[msg.sender], _toMinAmount);
-        TotalMintedAmount = Sub(TotalMintedAmount, _toMinAmount);
+        InvestAmountPerAddress[_GrowdropCount][msg.sender] = Sub(InvestAmountPerAddress[_GrowdropCount][msg.sender], _toMinAmount);
+        TotalMintedAmount[_GrowdropCount] = Sub(TotalMintedAmount[_GrowdropCount], _toMinAmount);
+        AllInvestAmount = Sub(AllInvestAmount, _toMinAmount);
 
-        require(manager.emitGrowdropActionEvent(msg.sender, InvestAmountPerAddress[msg.sender], now, 1, _toMinAmount));
+        require(CToken[_GrowdropCount].redeemUnderlying(_toMaxAmount)==0);
+        require(Token[_GrowdropCount].transfer(msg.sender, _toMaxAmount));
+
+        TotalUserInvestedAmount[msg.sender] = Sub(TotalUserInvestedAmount[msg.sender], _toMinAmount);
+
+        EventIdx += 1;
+        emit GrowdropAction(EventIdx, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], CTokenPerAddress[_GrowdropCount][msg.sender], 1);
     }
     
-    function Withdraw(bool ToUniswap) public {
-        require(!WithdrawOver[msg.sender]);
+    function Withdraw(uint256 _GrowdropCount, bool ToUniswap) public {
+        require(!WithdrawOver[_GrowdropCount][msg.sender]);
         
-        WithdrawOver[msg.sender] = true;
+        WithdrawOver[_GrowdropCount][msg.sender] = true;
         
-        EndGrowdrop();
-        if(TotalCTokenAmount==0) {
+        EndGrowdrop(_GrowdropCount);
+        if(TotalCTokenAmount[_GrowdropCount]==0) {
             return;
         }
-        if(DonateId!=0) {
+        if(DonateId[_GrowdropCount]!=0) {
             ToUniswap = false;
         }
-        if(msg.sender==Beneficiary) {
-            uint256 OwnerFee = MulAndDiv(TotalInterestOver, 3, 100);
+        if(msg.sender==Beneficiary[_GrowdropCount]) {
+            uint256 OwnerFee = MulAndDiv(TotalInterestOver[_GrowdropCount], 3, 100);
+            uint256 swappedTokenAmount;
+            uint256 beneficiaryinterest;
             if(ToUniswap) {
-                uint256 ToUniswapInterestRateCalculated = MulAndDiv(TotalInterestOver, ToUniswapInterestRate, 100);
-                require(Token.transfer(Beneficiary, Sub(Sub(TotalInterestOver,ToUniswapInterestRateCalculated),OwnerFee)));
+                uint256 ToUniswapInterestRateCalculated = MulAndDiv(TotalInterestOver[_GrowdropCount], ToUniswapInterestRate[_GrowdropCount], 100);
+                beneficiaryinterest = Sub(Sub(TotalInterestOver[_GrowdropCount],ToUniswapInterestRateCalculated),OwnerFee);
+                require(Token[_GrowdropCount].transfer(Beneficiary[_GrowdropCount], beneficiaryinterest));
                 
-                require(Token.approve(address(manager.Tokenswap()), ToUniswapInterestRateCalculated));
-                require(GrowdropToken.approve(address(manager.Tokenswap()), ToUniswapTokenAmount));
-                manager.Tokenswap().addPoolToUniswap(address(Token), address(GrowdropToken), Beneficiary, ToUniswapInterestRateCalculated, ToUniswapTokenAmount);
+                require(Token[_GrowdropCount].approve(address(Tokenswap), ToUniswapInterestRateCalculated));
+                require(GrowdropToken[_GrowdropCount].approve(address(Tokenswap), ToUniswapTokenAmount[_GrowdropCount]));
+                bool success = Tokenswap.addPoolToUniswap(
+                    address(Token[_GrowdropCount]),
+                    address(GrowdropToken[_GrowdropCount]),
+                    Beneficiary[_GrowdropCount],
+                    ToUniswapInterestRateCalculated,
+                    ToUniswapTokenAmount[_GrowdropCount]
+                );
+                if(success) {
+                    swappedTokenAmount = 0;
+                }
             } else {
-                if(DonateId==0) {
-                    sendTokenInWithdraw(Beneficiary, Sub(TotalInterestOver, OwnerFee), ToUniswapTokenAmount);
+                beneficiaryinterest = Sub(TotalInterestOver[_GrowdropCount], OwnerFee);
+                if(DonateId[_GrowdropCount]==0) {
+                    sendTokenInWithdraw(_GrowdropCount, Beneficiary[_GrowdropCount], beneficiaryinterest, ToUniswapTokenAmount[_GrowdropCount]);
                 } else {
-                    Token.transfer(Beneficiary, Sub(TotalInterestOver,OwnerFee));
+                    Token[_GrowdropCount].transfer(Beneficiary[_GrowdropCount], beneficiaryinterest);
                 }
             }
-            require(Token.transfer(manager.Owner(), OwnerFee));
+            require(Token[_GrowdropCount].transfer(owner, OwnerFee));
             
-            require(manager.emitGrowdropActionEvent(msg.sender, 0, now, 2, 0));
+            EventIdx += 1;
+            emit GrowdropAction(EventIdx, msg.sender, beneficiaryinterest, swappedTokenAmount, 2);
         } else {
-            uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[msg.sender], ExchangeRateOver, ConstVal);
-            uint256 investorTotalInterest = Sub(investorTotalAmount, InvestAmountPerAddress[msg.sender]);
+            uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], ConstVal);
+            uint256 investorTotalInterest = Sub(investorTotalAmount, InvestAmountPerAddress[_GrowdropCount][msg.sender]);
             uint256 tokenByInterest = MulAndDiv(
-                GrowdropAmount,
+                GrowdropAmount[_GrowdropCount],
                 investorTotalInterest,
-                TotalInterestOver
+                TotalInterestOver[_GrowdropCount]
             );
-            if(DonateId!=0) tokenByInterest = investorTotalInterest;
-            sendTokenInWithdraw(msg.sender, InvestAmountPerAddress[msg.sender], tokenByInterest);
-            require(manager.emitGrowdropActionEvent(msg.sender, tokenByInterest, now, 3, InvestAmountPerAddress[msg.sender]));
-        }
-    }
-    
-    function sendTokenInWithdraw(address To, uint256 TokenAmount, uint256 GrowdropTokenAmount) private {
-        require(Token.transfer(To, TokenAmount));
-        if(DonateId==0) {
-            require(GrowdropToken.transfer(To, GrowdropTokenAmount));
-        } else {
-            manager.DonateToken().mint(msg.sender, Beneficiary, address(Token), GrowdropTokenAmount, DonateId);
-        }
-    }
-    
-    function EndGrowdrop() private {
-        require(GrowdropStart && GrowdropEndTime<=now);
-        if(!GrowdropOver) {
-            GrowdropOver = true;
-            address owner = manager.Owner();
-            
-            require(CToken.transfer(owner, Sub(CToken.balanceOf(address(this)),TotalCTokenAmount)));
-            
-            ExchangeRateOver = CToken.exchangeRateCurrent();
-            uint256 _toAmount = MulAndDiv(Add(TotalCTokenAmount,1), ExchangeRateOver, ConstVal);
+            if(DonateId[_GrowdropCount]!=0) tokenByInterest = investorTotalInterest;
+            tokenByInterest = sendTokenInWithdraw(_GrowdropCount, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], tokenByInterest);
 
-            if(TotalCTokenAmount==0) {
-                if(DonateId==0) {
-                    require(GrowdropToken.transfer(Beneficiary, Add(GrowdropAmount, ToUniswapTokenAmount)));
+            TotalUserInvestedAmount[msg.sender] = Sub(TotalUserInvestedAmount[msg.sender], InvestAmountPerAddress[_GrowdropCount][msg.sender]);
+            EventIdx += 1;
+            emit GrowdropAction(EventIdx, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], tokenByInterest, 3);
+        }
+    }
+    
+    function sendTokenInWithdraw(uint256 _GrowdropCount, address To, uint256 TokenAmount, uint256 GrowdropTokenAmount) private returns (uint256) {
+        require(Token[_GrowdropCount].transfer(To, TokenAmount));
+        if(DonateId[_GrowdropCount]==0) {
+            require(GrowdropToken[_GrowdropCount].transfer(To, GrowdropTokenAmount));
+            return GrowdropTokenAmount;
+        } else {
+            return DonateToken.mint(msg.sender, Beneficiary[_GrowdropCount], address(Token[_GrowdropCount]), GrowdropTokenAmount, DonateId[_GrowdropCount]);
+        }
+    }
+    
+    function EndGrowdrop(uint256 _GrowdropCount) private {
+        require(GrowdropStart[_GrowdropCount] && GrowdropEndTime[_GrowdropCount]<=now);
+        if(!GrowdropOver[_GrowdropCount]) {
+            GrowdropOver[_GrowdropCount] = true;
+            
+            ExchangeRateOver[_GrowdropCount] = CToken[_GrowdropCount].exchangeRateCurrent();
+            uint256 _toAmount = MulAndDiv(Add(TotalCTokenAmount[_GrowdropCount],1), ExchangeRateOver[_GrowdropCount], ConstVal);
+
+            if(TotalCTokenAmount[_GrowdropCount]==0) {
+                if(DonateId[_GrowdropCount]==0) {
+                    require(
+                        GrowdropToken[_GrowdropCount].transfer(
+                            Beneficiary[_GrowdropCount],
+                            Add(GrowdropAmount[_GrowdropCount],ToUniswapTokenAmount[_GrowdropCount])
+                        )
+                    );
                 }
             } else {
-                require(CToken.redeemUnderlying(_toAmount)==0);
+                require(CToken[_GrowdropCount].redeemUnderlying(_toAmount)==0);
             }
+            TotalInterestOver[_GrowdropCount] = Sub(_toAmount, TotalMintedAmount[_GrowdropCount]);
             
-            require(Token.transfer(owner, Sub(Token.balanceOf(address(this)),_toAmount)));
-            TotalInterestOver = Sub(_toAmount, TotalMintedAmount);
-            
-            require(manager.emitGrowdropActionEvent(address(0x0), 0, now, 6, 0));
+            EventIdx += 1;
+            emit GrowdropAction(EventIdx, msg.sender, 0, 0, 6);
         }
     }
 
@@ -283,7 +335,37 @@ contract Growdrop {
         require(a>=b);
         return a-b;
     }
+
+    function emitDonateActionEvent(
+        address From,
+        address To,
+        address Supporter,
+        address beneficiary,
+        address token,
+        uint256 donateId,
+        uint256 Amount,
+        uint256 ActionIdx) public returns (uint256) {
+        require(msg.sender==address(DonateToken));
+        EventIdx += 1;
+        emit DonateAction(EventIdx, From, To, Supporter, beneficiary, token, donateId, Amount, ActionIdx);
+        return EventIdx;
+    }
     
+    function setDonateToken(address DonateTokenAddress) public {
+        require(CheckOwner[msg.sender]);
+        DonateToken = DonateTokenInterface(DonateTokenAddress);
+    }
+
+    function setTokenswap(address TokenswapAddress) public {
+        require(CheckOwner[msg.sender]);
+        Tokenswap = TokenswapInterface(TokenswapAddress);
+    }
+
+    function addOwner(address _Owner) public {
+        require(CheckOwner[msg.sender]);
+        CheckOwner[_Owner] = !CheckOwner[_Owner];
+    }
+
     function () external payable {
         
     }
