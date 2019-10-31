@@ -4,7 +4,7 @@ import "./EIP20Interface.sol";
 import "./UniswapFactoryInterface.sol";
 import "./UniswapExchangeInterface.sol";
 import "./KyberNetworkProxyInterface.sol";
-import "./GrowdropManagerInterface.sol";
+import "./Growdrop.sol";
 
 contract Tokenswap {
     UniswapFactoryInterface UniswapFactory;
@@ -13,9 +13,9 @@ contract Tokenswap {
     EIP20Interface KyberEthToken;
     EIP20Interface EthSwapToken;
     EIP20Interface UniswapAddPoolToken;
-    GrowdropManagerInterface GrowdropManager;
+    Growdrop growdrop;
     address Beneficiary;
-    address Owner;
+    mapping(address => bool) public CheckOwner;
     
     uint256 UniswapAddPoolTokenAmount;
     uint256 EthSwapTokenAmount;
@@ -26,42 +26,53 @@ contract Tokenswap {
 
     mapping (address => bool) CheckTokenAddress;
     
-    constructor (address GrowdropManagerAddress, address uniswapFactoryAddress, address kyberNetworkProxyAddress, address tokenAddress1, address tokenAddress2, uint256 kyberSwapMinimum) public {
-        Owner=msg.sender;
+    constructor (
+        address payable _Growdrop,
+        address uniswapFactoryAddress,
+        address kyberNetworkProxyAddress,
+        address tokenAddress1,
+        address tokenAddress2,
+        uint256 kyberSwapMinimum) public {
+
+        CheckOwner[msg.sender] = true;
         
-        GrowdropManager = GrowdropManagerInterface(GrowdropManagerAddress);
+        growdrop = Growdrop(_Growdrop);
         UniswapFactory = UniswapFactoryInterface(uniswapFactoryAddress);
         KyberNetworkProxy = KyberNetworkProxyInterface(kyberNetworkProxyAddress);
-        CheckTokenAddress[tokenAddress1]=true;
-        CheckTokenAddress[tokenAddress2]=true;
+        CheckTokenAddress[tokenAddress1] = true;
+        CheckTokenAddress[tokenAddress2] = true;
         
         KyberSwapMinimum = kyberSwapMinimum;
         
         KyberEthToken = EIP20Interface(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     }
+
+    function addOwner(address _Owner) public {
+        require(CheckOwner[msg.sender]);
+        CheckOwner[_Owner] = !CheckOwner[_Owner];
+    }
     
-    function setGrowdropManager(address GrowdropManagerAddress) public returns (bool) {
-        require(msg.sender==Owner);
-        GrowdropManager=GrowdropManagerInterface(GrowdropManagerAddress);
-        return true;
+    function setGrowdropManager(address payable _Growdrop) public {
+        require(CheckOwner[msg.sender]);
+        growdrop = Growdrop(_Growdrop);
     }
 
     function addTokenAddress(address tokenAddress) public {
-        require(msg.sender==Owner);
-        CheckTokenAddress[tokenAddress]=true;
+        require(CheckOwner[msg.sender]);
+        CheckTokenAddress[tokenAddress] = true;
     }
     
     function kyberswapEthToToken(address tokenAddress) public payable {
         uint256 minConversionRate;
         uint256 slippageRate;
         (minConversionRate,slippageRate) = KyberNetworkProxy.getExpectedRate(KyberEthToken, EIP20Interface(tokenAddress), msg.value);
-        require(slippageRate!=0);
+        require(slippageRate != 0);
         uint256 destAmount = KyberNetworkProxy.swapEtherToToken.value(msg.value)(EIP20Interface(tokenAddress), minConversionRate);
         require(EIP20Interface(tokenAddress).transfer(msg.sender, destAmount));
     }
     
     function getUniswapExchangeAddress(address token) private returns (address) {
-        address tokenExchangeAddr = UniswapFactory.getExchange(token); 
+        address tokenExchangeAddr = UniswapFactory.getExchange(token);
         if(tokenExchangeAddr==address(0x0)) {
             tokenExchangeAddr = UniswapFactory.createExchange(token);
         }
@@ -101,13 +112,18 @@ contract Tokenswap {
         return temp/c;
     }
     
-    function addPoolToUniswap(address ethSwapTokenAddress, address uniswapAddPoolTokenAddress, address beneficiary, uint256 ethSwapTokenAmount, uint256 uniswapAddPoolTokenAmount) public returns (bool) {
-        require(GrowdropManager.CheckGrowdropContract(msg.sender));
-        UniswapAddPoolTokenExchange=UniswapExchangeInterface(getUniswapExchangeAddress(uniswapAddPoolTokenAddress));
+    function addPoolToUniswap(
+        address ethSwapTokenAddress,
+        address uniswapAddPoolTokenAddress,
+        address beneficiary,
+        uint256 ethSwapTokenAmount,
+        uint256 uniswapAddPoolTokenAmount) public returns (bool) {
+        require(address(growdrop)==msg.sender);
+        UniswapAddPoolTokenExchange = UniswapExchangeInterface(getUniswapExchangeAddress(uniswapAddPoolTokenAddress));
         
         EthSwapToken = EIP20Interface(ethSwapTokenAddress);
         UniswapAddPoolToken = EIP20Interface(uniswapAddPoolTokenAddress);
-        Beneficiary=beneficiary;
+        Beneficiary = beneficiary;
         EthSwapTokenAmount = ethSwapTokenAmount;
         UniswapAddPoolTokenAmount = uniswapAddPoolTokenAmount;
         
@@ -130,7 +146,13 @@ contract Tokenswap {
         
         if (total_liquidity==0) {
             min_liquidity = Add(eth_reserve,TokenToEthAmount);
-            changeTokenToEth_AddLiquidity_Transfer(minConversionRate, EthSwapTokenAmount, TokenToEthAmount,min_liquidity,UniswapAddPoolTokenAmount);
+            changeTokenToEth_AddLiquidity_Transfer(
+                minConversionRate,
+                EthSwapTokenAmount,
+                TokenToEthAmount,
+                min_liquidity,
+                UniswapAddPoolTokenAmount
+            );
         } else {
             uint256 max_token;
             uint256 token_reserve = UniswapAddPoolToken.balanceOf(address(UniswapAddPoolTokenExchange));
@@ -153,12 +175,24 @@ contract Tokenswap {
                     return false;
                 }
                 
-                changeTokenToEth_AddLiquidity_Transfer(minConversionRate, lowerTokenAmount, lowerEthAmount, min_liquidity, max_token);
+                changeTokenToEth_AddLiquidity_Transfer(
+                    minConversionRate,
+                    lowerTokenAmount,
+                    lowerEthAmount,
+                    min_liquidity,
+                    max_token
+                );
 
                 require(EthSwapToken.transfer(Beneficiary, EthSwapTokenAmount-lowerTokenAmount));
                 require(UniswapAddPoolToken.transfer(Beneficiary, UniswapAddPoolTokenAmount-max_token));
             } else {
-                changeTokenToEth_AddLiquidity_Transfer(minConversionRate, EthSwapTokenAmount, TokenToEthAmount,min_liquidity,max_token);
+                changeTokenToEth_AddLiquidity_Transfer(
+                    minConversionRate,
+                    EthSwapTokenAmount,
+                    TokenToEthAmount,
+                    min_liquidity,
+                    max_token
+                );
                 require(UniswapAddPoolToken.transfer(Beneficiary, UniswapAddPoolTokenAmount-max_token));
             }
         }
@@ -175,7 +209,7 @@ contract Tokenswap {
         uint256 slippageRate;
         (minConversionRate,slippageRate) = KyberNetworkProxy.getExpectedRate(ethSwapToken, KyberEthToken, Precision);
         
-        uint256 precisionMinConversionRate=minConversionRate;
+        uint256 precisionMinConversionRate = minConversionRate;
         uint256 tokenAmount = MulAndDiv(ethAmount, Precision, minConversionRate);
         
         (minConversionRate,slippageRate) = KyberNetworkProxy.getExpectedRate(ethSwapToken, KyberEthToken, tokenAmount);
@@ -184,12 +218,16 @@ contract Tokenswap {
         }
         
         uint256 approximateEth = MulAndDiv(tokenAmount,minConversionRate,Precision);
-        uint256 reapproximateEth=ethAmount*2;
+        uint256 reapproximateEth = ethAmount*2;
         require(reapproximateEth>ethAmount);
         
-        tokenAmount = MulAndDiv(Sub(reapproximateEth,approximateEth), Precision, precisionMinConversionRate);
+        tokenAmount = MulAndDiv(
+            Sub(reapproximateEth,approximateEth),
+            Precision,
+            precisionMinConversionRate
+        );
         (minConversionRate,slippageRate) = KyberNetworkProxy.getExpectedRate(ethSwapToken, KyberEthToken, tokenAmount);
-        reapproximateEth=MulAndDiv(tokenAmount, minConversionRate, Precision);
+        reapproximateEth = MulAndDiv(tokenAmount, minConversionRate, Precision);
         
         if(slippageRate==0 || reapproximateEth<KyberSwapMinimum) {
             return (0, 0);
@@ -219,7 +257,12 @@ contract Tokenswap {
         return (uniswapExchangeAddress.balance, EIP20Interface(tokenAddress).balanceOf(uniswapExchangeAddress));
     }
     
-    function changeTokenToEth_AddLiquidity_Transfer(uint256 minConversionRate, uint256 ethSwapTokenAmount, uint256 ethAmount, uint256 liquidity, uint256 max_token) private {
+    function changeTokenToEth_AddLiquidity_Transfer(
+        uint256 minConversionRate,
+        uint256 ethSwapTokenAmount,
+        uint256 ethAmount,
+        uint256 liquidity,
+        uint256 max_token) private {
         require(EthSwapToken.approve(address(KyberNetworkProxy), ethSwapTokenAmount));
         uint256 destAmount = KyberNetworkProxy.swapTokenToEther(EthSwapToken, ethSwapTokenAmount, minConversionRate);
         address(uint160(Beneficiary)).transfer(destAmount-ethAmount);
