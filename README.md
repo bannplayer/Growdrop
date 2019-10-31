@@ -114,10 +114,8 @@ Open localhost:8080 with chrome browser.
 Click metamask login button.
 
 In browser console
-## App.GrowdropManager.methods.setDonateToken(App.DonateToken._address).send({from:App.account});
-## App.GrowdropManager.methods.setTokenswap(App.Tokenswap._address).send({from:App.account});
-
-New growdrop can only be done by mnemonic's first account. (deployer)
+## App.Growdrop.methods.setDonateToken(App.DonateToken._address).send({from:App.account});
+## App.Growdrop.methods.setTokenswap(App.Tokenswap._address).send({from:App.account});
 
 Starting growdrop needs to be approved before by SimpleToken.
 
