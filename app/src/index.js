@@ -1,5 +1,4 @@
 import Web3 from "web3";
-import GrowdropManagerArtifact from "../../build/contracts/GrowdropManager.json";
 import GrowdropArtifact from "../../build/contracts/Growdrop.json";
 import EIP20Interface from "../../build/contracts/EIP20Interface.json";
 import SimpleTokenABI from "./SimpleTokenABI.json";
@@ -19,11 +18,11 @@ const App = {
   KyberDAI: null,
   Growdrop: null,
   SimpleToken: null,
-  GrowdropManager: null,
   DonateToken: null,
   Tokenswap: null,
   GrowdropCall: null,
   KyberNetworkProxy: null,
+  latestGrowdrop: null,
   UniswapSimpleTokenExchangeAddress: "0xfC8c8f7040b3608A74184D664853f5f30F53CbA8",
   DAIAddress:"0xbF7A7169562078c96f0eC1A8aFD6aE50f12e5A99",
   KyberDAIAddress:"0xC4375B7De8af5a38a93548eb8453a498222C4fF2",
@@ -135,12 +134,12 @@ const App = {
       KyberEthTokenAddress="0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
       cDAIAddress="0xf5dce57282a584d2746faf1593d3121fcac444dc";
     }
-    const deployedNetwork_growdropmanager = GrowdropManagerArtifact.networks[networkId];
+    const deployedNetwork_growdrop = GrowdropArtifact.networks[networkId];
     const deployedNetwork_donatetoken = DonateToken.networks[networkId];
     const deployedNetwork_tokenswap = Tokenswap.networks[networkId];
     const deployedNetwork_growdropcall = GrowdropCall.networks[networkId];
 
-    this.GrowdropManager = this.contractInit(GrowdropManagerArtifact.abi, deployedNetwork_growdropmanager.address);
+    this.Growdrop = this.contractInit(GrowdropArtifact.abi, deployedNetwork_growdrop.address);
     this.DonateToken = this.contractInit(DonateToken.abi, deployedNetwork_donatetoken.address);
     this.Tokenswap = this.contractInit(Tokenswap.abi, deployedNetwork_tokenswap.address);
     this.GrowdropCall = this.contractInit(GrowdropCall.abi, deployedNetwork_growdropcall.address);
@@ -150,36 +149,44 @@ const App = {
     this.KyberNetworkProxy = this.contractInit(KyberNetworkProxy.abi, this.KyberNetworkProxyAddress);
     this.ipfs = ipfsClient('ipfs.infura.io', '5001', {protocol:'https'})
 
-    this.account = await this.getProviderCurrentAccount();
-    await this.refreshFirst();
-  },
-
-  refreshFirst: async function() {
     this.SimpleToken = this.contractInit(SimpleTokenABI.abi, this.SimpleTokenAddress);
-    await this.refreshGrowdrop();
 
-    if(App.Growdrop!=null) {
-      await this.refresh();
-      App.getGrowdropActionPastEvents(App.GrowdropManager, App.Growdrop._address, App.account);  
-    }
+    this.account = await this.getProviderCurrentAccount();
+    await this.refresh();
   },
 
   KyberswapEthToTokenTx: async function(contractinstance, token, amount, account) {
-    return await contractinstance.methods.kyberswapEthToToken(token).send({from:account, value:amount})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+    return contractinstance.methods.kyberswapEthToToken(token).send({from:account, value:amount})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
   },
 
   UniswapTokenTx: async function(contractinstance, fromtoken, totoken, amount, account) {
-    return await contractinstance.methods.uniswapToken(fromtoken, totoken, amount).send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+    return contractinstance.methods.uniswapToken(fromtoken, totoken, amount).send({from:account})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
+  },
+
+  GetGrowdropCountCall: async function(contractinstance) {
+    return await contractinstance.methods.GrowdropCount().call();
   },
 
   GetExpectedAmountCall: async function(contractinstance, ethortoken,token,amount) {
@@ -207,13 +214,67 @@ const App = {
   },
 
   SetMultihashTx: async function(contractinstance,hash,hashfunction,size,account) {
-    return await contractinstance.methods.setMultihash(hash,hashfunction,size).send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+    return contractinstance.methods.setMultihash(hash,hashfunction,size).send({from:account})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
   },
+
+  /*
+
+  */
+  getDonateEvent: function(receipt) {
+    var ret = {
+      event_idx: receipt.events.DonateEvent.returnValues._eventIdx,
+      from: receipt.events.DonateEvent.returnValues._from,
+      donate_id: receipt.events.DonateEvent.returnValues._donateId,
+      hash: receipt.events.DonateEvent.returnValues._hash,
+      hash_function: receipt.events.DonateEvent.returnValues._hash_function,
+      size: receipt.events.DonateEvent.returnValues._size,
+    };
+    return ret;
+  },
+
+  /*
+
+  */
+  getGrowdropEvent: function(receipt) {
+    if(receipt.events.GrowdropAction.length==2) {
+      var ret = [{
+        event_idx: receipt.events.GrowdropAction[0].returnValues._EventIdx,
+        action_idx: receipt.events.GrowdropAction[0].returnValues._ActionIdx,
+        from: receipt.events.GrowdropAction[0].returnValues._From,
+        amount1: receipt.events.GrowdropAction[0].returnValues._Amount1,
+        amount2: receipt.events.GrowdropAction[0].returnValues._Amount2,
+      },
+      {
+        event_idx: receipt.events.GrowdropAction[1].returnValues._EventIdx,
+        action_idx: receipt.events.GrowdropAction[1].returnValues._ActionIdx,
+        from: receipt.events.GrowdropAction[1].returnValues._From,
+        amount1: receipt.events.GrowdropAction[1].returnValues._Amount1,
+        amount2: receipt.events.GrowdropAction[1].returnValues._Amount2,
+      }]
+      return ret;
+    }
+    var ret = {
+      event_idx: receipt.events.GrowdropAction.returnValues._EventIdx,
+      action_idx: receipt.events.GrowdropAction.returnValues._ActionIdx,
+      from: receipt.events.GrowdropAction.returnValues._From,
+      amount1: receipt.events.GrowdropAction.returnValues._Amount1,
+      amount2: receipt.events.GrowdropAction.returnValues._Amount2
+    };
+    return ret;
+  },
+
+
   /*
   Uniswap token to eth price call
   contractinstance => Uniswap Exchange contract instance 
@@ -247,8 +308,8 @@ const App = {
 
   /*
   Growdrop Contract Data call
-  contractinstance => UniswapDaiSwap contract instance
-  GrowdropAddress => Growdrop contract address
+  contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop contract index
   return =>
   address of Growdrop Token Contract (String)
   address of beneficiary (String)
@@ -262,67 +323,28 @@ const App = {
   Growdrop token amount to uniswap pool (Number)
   Growdrop interest percentage to uniswap pool (Number 1~99)
   */
-  GetGrowdropDataCall: async function(contractinstance, GrowdropAddress, account) {
-    return await contractinstance.methods.getGrowdropData(GrowdropAddress).call({from:account});
+  GetGrowdropDataCall: async function(contractinstance, GrowdropCount, account) {
+    return await contractinstance.methods.getGrowdropData(GrowdropCount).call({from:account});
   },
 
-  /*
-  Growdrop Contract's User Data call
-  contractinstance => UniswapDaiSwap contract instance
-  GrowdropAddress => Growdrop contract address (String)
-  account => account to get User Data (String)
-  return => 
-  investor's invested amount to Growdrop contract (Number)
-  investor's invested amount + accrued interest to Growdrop contract (Number)
-  investor's accrued interest to Growdrop contract (Number)
-  investor's interest percentage of total Growdrop contract interest (Number)
-  investor's Growdrop token amount calculated by investor's interest percentage (Number)
-  */
-  GetUserDataCall: async function(contractinstance, GrowdropAddress, account) {
-    return await contractinstance.methods.getUserData(GrowdropAddress).call({from: account});
+  GetGrowdropStateDataCall: async function(contractinstance, GrowdropCount, account) {
+    return await contractinstance.methods.getGrowdropStateData(GrowdropCount).call({from:account});
   },
 
-  /*
-  Growdrop Contract List's Length call
-  contractinstance => GrowdropManager contract instance
-  return => 
-  Growdrop contracts list length (Number)
-  */
-  GetGrowdropListLengthCall: async function(contractinstance) {
-    return await contractinstance.methods.getGrowdropListLength().call();
-  },
-
-  /*
-  Growdrop Contract address call
-  contractinstance => GrowdropManager contract instance
-  contractIdx => Growdrop contract index (Number)
-  return =>
-  Growdrop contract address (String)
-  */
-  GetGrowdropCall: async function(contractinstance, contractIdx) {
-    return await contractinstance.methods.GrowdropList(contractIdx).call();
-  },
-
-  /*
-  address's invested amount + accrued interest call
-  contractinstance => Growdrop contract instance
-  account => address to get data (String)
-  return =>
-  user's invested amount + accrued interest to Growdrop contract (Number)
-  */
-  TotalPerAddressCall: async function(contractinstance, account) {
-    return await contractinstance.methods.TotalPerAddress(account).call();
+  GetGrowdropAmountDataCall: async function(contractinstance, GrowdropCount, account) {
+    return await contractinstance.methods.getGrowdropAmountData(GrowdropCount).call({from:account});
   },
 
   /*
   address's invested amount call
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   account => address to get data (String)
   return =>
   user's invested amount to Growdrop contract (Number)
   */
-  InvestAmountPerAddressCall: async function(contractinstance, account) {
-    return await contractinstance.methods.InvestAmountPerAddress(account).call();
+  InvestAmountPerAddressCall: async function(contractinstance, GrowdropCount, account) {
+    return await contractinstance.methods.InvestAmountPerAddress(GrowdropCount, account).call();
   },
 
   /*
@@ -339,62 +361,56 @@ const App = {
   /*
   Growdrop contract's total user count call
   contractinstance => GrowdropManager contract instance
-  account => Growdrop contract address to get data (String)
+  GrowdropCount => Growdrop index
   return =>
   user count to Growdrop contract (Number)
   */
-  TotalUserCountCall: async function(contractinstance, account) {
-    return await contractinstance.methods.TotalUserCount(account).call();
+  TotalUserCountCall: async function(contractinstance, GrowdropCount) {
+    return await contractinstance.methods.TotalUserCount(GrowdropCount).call();
   },
 
   /*
   Growdrop contract's total invested amount call
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   return =>
   total invested amount to Growdrop contract (Number)
   */
-  TotalMintedAmountCall: async function(contractinstance) {
-    return await contractinstance.methods.TotalMintedAmount().call();
+  TotalMintedAmountCall: async function(contractinstance, GrowdropCount) {
+    return await contractinstance.methods.TotalMintedAmount(GrowdropCount).call();
   },
 
   /*
   Growdrop contract's selling token contract address call
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   return =>
   address of Growdrop token contract (String)
   */
-  GrowdropTokenCall: async function(contractinstance) {
-    return await contractinstance.methods.GrowdropToken().call();
+  GrowdropTokenCall: async function(contractinstance, GrowdropCount) {
+    return await contractinstance.methods.GrowdropToken(GrowdropCount).call();
   },
 
   /*
   Growdrop contract's end time call
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   return => 
   Growdrop end time (Number unix timestamp)
   */
-  GrowdropEndTimeCall: async function(contractinstance) {
-    return await contractinstance.methods.GrowdropEndTime().call();
+  GrowdropEndTimeCall: async function(contractinstance, GrowdropCount) {
+    return await contractinstance.methods.GrowdropEndTime(GrowdropCount).call();
   },
 
   /*
   Growdrop contract's beneficiary call
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   return =>
   address of beneficiary (String)
   */
-  BeneficiaryCall: async function(contractinstance) {
-    return await contractinstance.methods.Beneficiary().call();
-  },
-
-  /*
-  Growdrop contract's owner call
-  contractinstance => Growdrop contract instance
-  return =>
-  address of owner (String)
-  */
-  OwnerCall: async function(contractinstance) {
-    return await contractinstance.methods.Owner().call();
+  BeneficiaryCall: async function(contractinstance, GrowdropCount) {
+    return await contractinstance.methods.Beneficiary(GrowdropCount).call();
   },
 
   /*
@@ -422,17 +438,23 @@ const App = {
   (Boolean true : success, false : failed)
   */
   TokenApproveTx: async function(contractinstance, to, amount, account) {
-    return await contractinstance.methods.approve(to, amount).send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+    return contractinstance.methods.approve(to, amount).send({from:account})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
   },
 
   /*
   make new Growdrop Contract transaction (only owner can)
-  contractinstance => GrowdropManager contract instance
+  contractinstance => Growdrop contract instance
   tokenaddress => dai contract address (set, String)
   ctokenaddress => compound cdai contract address (set, String)
   growdroptokenaddress => selling token address (String)
@@ -458,7 +480,7 @@ const App = {
     ToUniswapInterestRate,
     DonateId,
     account) {
-    return await contractinstance.methods.newGrowdrop(
+    return contractinstance.methods.newGrowdrop(
       tokenaddress,
       ctokenaddress,
       growdroptokenaddress,
@@ -469,149 +491,117 @@ const App = {
       ToUniswapInterestRate,
       DonateId
     ).send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
   },
 
   /*
   Start Growdrop Contract transaction (only beneficiary can)
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   account => address calling (beneficiary, String)
   return => 
   (Boolean true : success, false : failed)
   */
-  StartGrowdropTx: async function(contractinstance, account) {
-    return await contractinstance.methods.StartGrowdrop().send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+  StartGrowdropTx: async function(contractinstance, GrowdropCount, account) {
+    return contractinstance.methods.StartGrowdrop(GrowdropCount).send({from:account})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
   },
 
   /*
   add investing amount
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   amount => amount to add investing (Number)
   account => address adding (String)
   return => 
   (Boolean true : success, false : failed)
   */
-  MintTx: async function(contractinstance, amount, account) {
-    await contractinstance.methods.Mint(amount).send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+  MintTx: async function(contractinstance, GrowdropCount, amount, account) {
+    return contractinstance.methods.Mint(GrowdropCount, amount).send({from:account})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
   },
 
   /*
   subtract investing amount
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   amount => amount to subtract investing (Number)
   account => address subtracting (String)
   return => 
   (Boolean true : success, false : failed)
   */
-  RedeemTx: async function(contractinstance, amount, account) {
-    return await contractinstance.methods.Redeem(amount).send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
-    }); 
+  RedeemTx: async function(contractinstance, GrowdropCount, amount, account) {
+    return contractinstance.methods.Redeem(GrowdropCount, amount).send({from:account})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
   },
 
   /*
   Withdraw interest (beneficiary)
   Withdraw invested amount and get selling token (investor)
   contractinstance => Growdrop contract instance
+  GrowdropCount => Growdrop index
   ToUniswap => true : add to uniswap, false : not add to uniswap (only for beneficiary, investor doesn't care, Boolean)
   account => address calling (String)
   return => 
   (Boolean true : success, false : failed)
   */
-  WithdrawTx: async function(contractinstance, ToUniswap, account) {
-    return await contractinstance.methods.Withdraw(ToUniswap).send({from:account})
-    .then(receipt => {
-      return (receipt.status==true);
-    }).catch(error => {
-      return false;
+  WithdrawTx: async function(contractinstance, GrowdropCount, ToUniswap, account) {
+    return contractinstance.methods.Withdraw(GrowdropCount, ToUniswap).send({from:account})
+    .on('transactionHash', function(hash) {
+      console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        console.log(confirmed+" "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
     });
   },
 
   setElement_innerHTML: async function(element, text) {
     element.innerHTML = App.withDecimal(text);
-  },
-
-  setInvestorMintedResult: async function(events) {
-    let InvestorMintedtemplaterow = $('#Growdrop_InvestorMintedevent_row');
-    InvestorMintedtemplaterow.empty();
-    let InvestorMintedtemplate = $('#Growdrop_InvestorMintedevent_template');
-    for(let i = 0; i<events.length; i++) {
-      if(parseInt(events[i].returnValues._ActionIdx)==0) {
-        InvestorMintedtemplate.find('.InvestorMintedTimedisplay').text(new Date(parseInt(events[i].returnValues._ActionTime*1000)));
-        InvestorMintedtemplate.find('.InvestorMintedAmountdisplay').text(App.withDecimal(events[i].returnValues._Amount));
-      
-        InvestorMintedtemplaterow.append(InvestorMintedtemplate.html());
-      }
-    }
-  },
-
-  setInvestorRedeemedResult: async function(events) {
-    let InvestorRedeemedtemplaterow = $('#Growdrop_InvestorRedeemedevent_row');
-    InvestorRedeemedtemplaterow.empty();
-    let InvestorRedeemedtemplate = $('#Growdrop_InvestorRedeemedevent_template');
-    for(let i = 0; i<events.length; i++) {
-      if(parseInt(events[i].returnValues._ActionIdx)==1) {
-        InvestorRedeemedtemplate.find('.InvestorRedeemedTimedisplay').text(new Date(parseInt(events[i].returnValues._ActionTime*1000)));
-        InvestorRedeemedtemplate.find('.InvestorRedeemedAmountdisplay').text(App.withDecimal(events[i].returnValues._Amount));
-        
-        InvestorRedeemedtemplaterow.append(InvestorRedeemedtemplate.html());
-      }
-    }
-  },
-
-  getGrowdropActionPastEvents: async function(contractinstance, GrowdropAddress, Account) {
-    /*
-    filter : 
-    _eventIdx, => event number (Number)
-    _Growdrop, => growdrop contract address (String)
-    _From => account address (String)
-    */
-    contractinstance.getPastEvents("GrowdropAction", {filter: {_Growdrop: GrowdropAddress, _From:Account},fromBlock: 0,toBlock: 'latest'}).then(function(events) {
-      /*
-      events[i].returnValues._eventIdx, (Number)
-      events[i].returnValues._Growdrop, (String)
-      events[i].returnValues._From, (String)
-      events[i].returnValues._Amount, => 0 : Mint Amount, 1 : Redeem Amount, 2 : nothing(0), 3 : Growdrop Token Amount, 4 : nothing(0) (Number)
-      events[i].returnValues._ActionTime, (Number unix timestamp)
-      events[i].returnValues._ActionIdx, => 0 : Mint, 1 : Redeem, 2 : BeneficiaryWithdraw, 3 : InvestorWithdraw, 4 : UserJoinedGrowdrop , 5 : GrowdropStart , 6 : GrowdropEnded (Number)
-      */
-      App.setInvestorMintedResult(events);
-      App.setInvestorRedeemedResult(events);
-    });
-  },
-
-  newGrowdropContractPastEvents: async function(contractinstance, account) {
-    /*
-    filter : 
-    _eventIdx, => event number (Number)
-    _idx, => growdrop contract index (Number)
-    _beneficiary => Growdrop contract beneficiary (String)
-    */
-    contractinstance.getPastEvents("NewGrowdropContract", {filter: {_beneficiary:account}, fromBlock: 0, toBlock: 'latest'}).then(function(events) {
-      /*
-      events[i].returnValues._eventIdx, (Number)
-      events[i].returnValues._idx, (Number)
-      events[i].returnValues._beneficiary, (String)
-      events[i].returnValues._GrowdropAddress (String)
-      */ 
-    });
   },
 
   allPastEvents: async function(contractinstance) {
@@ -623,10 +613,12 @@ const App = {
       events[i].event => event name
       events[i].returnValues... => event results
       */
+      console.log(events);
     });
   },
 
   refresh: async function() {
+    this.latestGrowdrop = await this.GetGrowdropCountCall(this.Growdrop);
     const DAIbalance = await this.TokenBalanceOfCall(this.DAI, App.account);
     const KyberDAIbalance = await this.TokenBalanceOfCall(this.KyberDAI, App.account);
     const SimpleTokenbalance = await this.TokenBalanceOfCall(this.SimpleToken, App.account);
@@ -649,11 +641,13 @@ const App = {
     const UniswapSimpleTokenTokenPoolElement = document.getElementsByClassName("UniswapSimpleTokenTokenPool")[0];
     App.setElement_innerHTML(UniswapSimpleTokenTokenPoolElement, GetUniswapLiquidityPoolRes[1]);
 
-    const GrowdropData_value = await App.GetGrowdropDataCall(App.GrowdropCall, App.Growdrop._address, App.account);
+    const GrowdropData_value = await App.GetGrowdropDataCall(App.GrowdropCall, App.latestGrowdrop, App.account);
+    const GrowdropStateData_value = await App.GetGrowdropStateDataCall(App.GrowdropCall, App.latestGrowdrop, App.account);
+    const GrowdropAmountData_value = await App.GetGrowdropAmountDataCall(App.GrowdropCall, App.latestGrowdrop, App.account);
 
-    if(GrowdropData_value[8]==false) {
+    if(GrowdropStateData_value[2]==false) {
       $(document).find('.GrowdropStatusdisplay').text("pending");
-    } else if (GrowdropData_value[7]==false) {
+    } else if (GrowdropStateData_value[3]==false) {
       $(document).find('.GrowdropStatusdisplay').text("running");
     } else {
       $(document).find('.GrowdropStatusdisplay').text("ended");
@@ -661,65 +655,57 @@ const App = {
 
     $(document).find('.GrowdropTokendisplay').text(GrowdropData_value[0]);
     $(document).find('.Beneficiarydisplay').text(GrowdropData_value[1]);
-    $(document).find('.GrowdropStartTimedisplay').text(new Date(parseInt(GrowdropData_value[3]*1000)));
-    $(document).find('.GrowdropEndTimedisplay').text(new Date(parseInt(GrowdropData_value[4]*1000)));
+    $(document).find('.GrowdropStartTimedisplay').text(new Date(parseInt(GrowdropStateData_value[0]*1000)));
+    $(document).find('.GrowdropEndTimedisplay').text(new Date(parseInt(GrowdropStateData_value[1]*1000)));
     $(document).find('.GrowdropAmountdisplay').text(App.withDecimal(GrowdropData_value[2]));
 
-    $(document).find('.TotalBalancedisplay').text(App.withCTokenDecimal(GrowdropData_value[5]));
-    $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropData_value[6]));
-    $(document).find('.TotalPerAddressdisplay').text(App.withCTokenDecimal(GrowdropData_value[11]));
-    $(document).find('.InvestAmountPerAddressdisplay').text(App.withDecimal(GrowdropData_value[12]));
-  },
-
-  refreshGrowdrop: async function() {
-    const getGrowdropListLengthres = await App.GetGrowdropListLengthCall(App.GrowdropManager);
-    if(App.toBigInt(getGrowdropListLengthres)==0) {
-      App.setStatus("there is no growdrop contract yet");
-    } else {
-      const getGrowdropres = await App.GetGrowdropCall(
-        App.GrowdropManager, 
-        String(App.toBigInt(getGrowdropListLengthres)-App.toBigInt(1))
-      );
-
-      App.Growdrop = this.contractInit(GrowdropArtifact.abi, getGrowdropres);
-    }
+    $(document).find('.TotalBalancedisplay').text(App.withCTokenDecimal(GrowdropAmountData_value[0]));
+    $(document).find('.TotalMintedAmountdisplay').text(App.withDecimal(GrowdropAmountData_value[1]));
+    $(document).find('.TotalPerAddressdisplay').text(App.withCTokenDecimal(GrowdropAmountData_value[2]));
+    $(document).find('.InvestAmountPerAddressdisplay').text(App.withDecimal(GrowdropAmountData_value[3]));
   },
 
   Mint: async function() {
     var MintAmount = parseInt(document.getElementById("Mintinput").value);
-    App.setStatus("Initiating Mint transaction... (please wait)");
-    const Mint_res = await App.MintTx(App.Growdrop, String(MintAmount), App.account);
-    App.setStatus(Mint_res);
+    const Mint_res = await App.MintTx(App.Growdrop, App.latestGrowdrop, String(MintAmount), App.account);
+    if(Mint_res.status) {
+      var GrowdropEventRes = App.getGrowdropEvent(Mint_res);
+      console.log(GrowdropEventRes);
+    }
   },
 
   Redeem: async function() {
     var RedeemAmount = parseInt(document.getElementById("Redeeminput").value);
-    App.setStatus("Initiating Redeem transaction... (please wait)");
-    const Redeem_res = await App.RedeemTx(App.Growdrop, String(RedeemAmount), App.account);
-    App.setStatus(Redeem_res);
+    const Redeem_res = await App.RedeemTx(App.Growdrop, App.latestGrowdrop, String(RedeemAmount), App.account);
+    if(Redeem_res.status) {
+      var GrowdropEventRes = App.getGrowdropEvent(Redeem_res);
+      console.log(GrowdropEventRes);
+    }
   },
 
   Withdraw: async function() {
     const add_to_uniswap = parseInt(document.getElementById("AddToUniswap").value);
-    App.setStatus("Initiating Withdraw transaction... (please wait)");
+    var touniswap=false;
     if(add_to_uniswap==1) {
-      const Withdraw_res = await App.WithdrawTx(App.Growdrop, true, App.account);
-      App.setStatus(Withdraw_res);
-    } else {
-      const Withdraw_res = await App.WithdrawTx(App.Growdrop, false, App.account);
-      App.setStatus(Withdraw_res);
+        touniswap=true;
+    }
+    const Withdraw_res = await App.WithdrawTx(App.Growdrop, App.latestGrowdrop, touniswap, App.account);
+    if(Withdraw_res.status) {
+      var GrowdropEventRes = App.getGrowdropEvent(Withdraw_res);
+      console.log(GrowdropEventRes);
     }
   },
 
   approveDAI: async function() {
-    App.setStatus("Initiating approveDAI transaction... (please wait)");
     const approve_res = await App.TokenApproveTx(
       App.DAI, 
       App.Growdrop._address, 
       String("115792089237316195423570985008687907853269984665640564039457584007913129639935"), 
       App.account
     );
-    App.setStatus(approve_res);
+    if(approve_res.status) {
+      console.log("DAI approved");
+    }
   },
 
   approveSimpleToken: async function() {
@@ -730,7 +716,9 @@ const App = {
       String("115792089237316195423570985008687907853269984665640564039457584007913129639935"), 
       App.account
     );
-    App.setStatus(approve_res);
+    if(approve_res.status) {
+      console.log("SimpleToken approved");
+    }
   },
 
   NewGrowdrop: async function() {
@@ -746,7 +734,7 @@ const App = {
     }
     App.setStatus("Initiating NewGrowdrop transaction... (please wait)");
     const newGrowdrop_res = await App.NewGrowdropTx(
-      App.GrowdropManager,
+      App.Growdrop,
       App.DAI._address,
       App.cDAIAddress,
       growdroptoken,
@@ -759,15 +747,17 @@ const App = {
       App.account
       );
 
-    await App.refreshGrowdrop();
     await App.refresh();
-    App.setStatus(newGrowdrop_res);
+    console.log(newGrowdrop_res);
   },
 
   StartGrowdrop: async function() {
     App.setStatus("Initiating StartGrowdrop transaction... (please wait)");
-    const StartGrowdrop_res = await App.StartGrowdropTx(App.Growdrop, App.account);
-    App.setStatus(StartGrowdrop_res);
+    const StartGrowdrop_res = await App.StartGrowdropTx(App.Growdrop, App.latestGrowdrop, App.account);
+    if(StartGrowdrop_res.status) {
+      var GrowdropEventRes = App.getGrowdropEvent(StartGrowdrop_res);
+      console.log(GrowdropEventRes);
+    }
   },
 
   setStatus: function(message) {
@@ -813,7 +803,10 @@ const App = {
         size, 
         App.account
       );
-      App.setStatus(SetMultihashRes);
+      if(SetMultihashRes.status) {
+        var DonateEventRes = App.getDonateEvent(SetMultihashRes);
+        console.log(DonateEventRes);
+      }
     } else {
       App.setStatus(MultihashToDonateIdRes);
     }
@@ -851,7 +844,7 @@ const App = {
       amount, 
       App.account
     );
-    this.setStatus(KyberswapEthToTokenRes);
+    console.log(KyberswapEthToTokenRes);
   },
 
   UniswapToken: async function() {
@@ -863,7 +856,7 @@ const App = {
       amount,
       App.account
     );
-    this.setStatus(UniswapTokenRes);
+    console.log(UniswapTokenRes);
   },
 
   GetExpectedAmount: async function() {
