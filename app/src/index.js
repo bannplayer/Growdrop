@@ -1,5 +1,6 @@
 import Web3 from "web3";
 import GrowdropArtifact from "../../build/contracts/Growdrop.json";
+import GrowdropKovanArtifact from "../../build/contracts/Growdrop_kovan.json";
 import EIP20Interface from "../../build/contracts/EIP20Interface.json";
 import SimpleTokenABI from "./SimpleTokenABI.json";
 import DonateToken from "../../build/contracts/DonateToken.json";
@@ -127,19 +128,25 @@ const App = {
     const networkId = await web3.eth.net.getId();
     if(networkId==1) {
       //UniswapSimpleTokenExchangeAddress="0xfC8c8f7040b3608A74184D664853f5f30F53CbA8";
-      DAIAddress="0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359";
-      KyberDAIAddress="0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359";
-      KyberNetworkProxyAddress="0x818E6FECD516Ecc3849DAf6845e3EC868087B755";
+      this.DAIAddress="0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359";
+      this.KyberDAIAddress="0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359";
+      this.KyberNetworkProxyAddress="0x818E6FECD516Ecc3849DAf6845e3EC868087B755";
       //SimpleTokenAddress="0x53cc0b020c7c8bbb983d0537507d2c850a22fa4c";
-      KyberEthTokenAddress="0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
-      cDAIAddress="0xf5dce57282a584d2746faf1593d3121fcac444dc";
+      this.KyberEthTokenAddress="0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+      this.cDAIAddress="0xf5dce57282a584d2746faf1593d3121fcac444dc";
     }
     const deployedNetwork_growdrop = GrowdropArtifact.networks[networkId];
     const deployedNetwork_donatetoken = DonateToken.networks[networkId];
     const deployedNetwork_tokenswap = Tokenswap.networks[networkId];
     const deployedNetwork_growdropcall = GrowdropCall.networks[networkId];
 
-    this.Growdrop = this.contractInit(GrowdropArtifact.abi, deployedNetwork_growdrop.address);
+    if(networkId==42) {
+      const deployedNetwork_growdrop_kovan = GrowdropKovanArtifact.networks[networkId];
+      this.Growdrop = this.contractInit(GrowdropKovanArtifact.abi, deployedNetwork_growdrop_kovan.address);
+      this.SimpleToken = this.contractInit(SimpleTokenABI.abi, this.SimpleTokenAddress);
+    } else if (networkId==1) {
+      this.Growdrop = this.contractInit(GrowdropArtifact.abi, deployedNetwork_growdrop.address);
+    }
     this.DonateToken = this.contractInit(DonateToken.abi, deployedNetwork_donatetoken.address);
     this.Tokenswap = this.contractInit(Tokenswap.abi, deployedNetwork_tokenswap.address);
     this.GrowdropCall = this.contractInit(GrowdropCall.abi, deployedNetwork_growdropcall.address);
@@ -148,8 +155,6 @@ const App = {
     this.KyberDAI = this.contractInit(EIP20Interface.abi, this.KyberDAIAddress);
     this.KyberNetworkProxy = this.contractInit(KyberNetworkProxy.abi, this.KyberNetworkProxyAddress);
     this.ipfs = ipfsClient('ipfs.infura.io', '5001', {protocol:'https'})
-
-    this.SimpleToken = this.contractInit(SimpleTokenABI.abi, this.SimpleTokenAddress);
 
     this.account = await this.getProviderCurrentAccount();
     await this.refresh();
@@ -161,7 +166,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -176,7 +181,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -219,7 +224,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -250,6 +255,7 @@ const App = {
     if(receipt.events.GrowdropAction.length==2) {
       var ret = [{
         event_idx: receipt.events.GrowdropAction[0].returnValues._EventIdx,
+        growdrop_count: receipt.events.GrowdropAction[0].returnValues._GrowdropCount,
         action_idx: receipt.events.GrowdropAction[0].returnValues._ActionIdx,
         from: receipt.events.GrowdropAction[0].returnValues._From,
         amount1: receipt.events.GrowdropAction[0].returnValues._Amount1,
@@ -257,6 +263,7 @@ const App = {
       },
       {
         event_idx: receipt.events.GrowdropAction[1].returnValues._EventIdx,
+        growdrop_count: receipt.events.GrowdropAction[1].returnValues._GrowdropCount,
         action_idx: receipt.events.GrowdropAction[1].returnValues._ActionIdx,
         from: receipt.events.GrowdropAction[1].returnValues._From,
         amount1: receipt.events.GrowdropAction[1].returnValues._Amount1,
@@ -266,6 +273,7 @@ const App = {
     }
     var ret = {
       event_idx: receipt.events.GrowdropAction.returnValues._EventIdx,
+      growdrop_count: receipt.events.GrowdropAction.returnValues._GrowdropCount,
       action_idx: receipt.events.GrowdropAction.returnValues._ActionIdx,
       from: receipt.events.GrowdropAction.returnValues._From,
       amount1: receipt.events.GrowdropAction.returnValues._Amount1,
@@ -443,7 +451,33 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
+      }
+    }).on('receipt', function(receipt) {
+      return receipt;
+    }).on('error', function(error) {
+      return error;
+    });
+  },
+
+  /*
+    ERC20, ERC721 token transferFrom transaction
+    contractinstance => ERC20, ERC721 token contract instance
+    from => address sending token (String)
+    to => address receiving token (String)
+    amount => amount to transfer (Number)
+    account => address calling transfer (String)
+
+    return =>
+    (Boolean true : success, false : failed)
+    */
+   TokenTransferFromTx: async function (contractinstance, from, to, amount, account) {
+    return await contractinstance.methods.transferFrom(from, to, amount).send({from: account})
+    .on('transactionHash', function(hash) {
+      ////console.log("transaction hash : "+hash);
+    }).on('confirmation', function(confirmationNumber) {
+      if(confirmationNumber==6) {
+        //console.log(confirmed+" "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -495,7 +529,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -518,7 +552,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -542,7 +576,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -566,7 +600,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -591,7 +625,7 @@ const App = {
       console.log("transaction hash : "+hash);
     }).on('confirmation', function(confirmationNumber) {
       if(confirmationNumber==6) {
-        console.log(confirmed+" "+confirmationNumber);
+        console.log("confirmed+ "+confirmationNumber);
       }
     }).on('receipt', function(receipt) {
       return receipt;
@@ -621,25 +655,28 @@ const App = {
     this.latestGrowdrop = await this.GetGrowdropCountCall(this.Growdrop);
     const DAIbalance = await this.TokenBalanceOfCall(this.DAI, App.account);
     const KyberDAIbalance = await this.TokenBalanceOfCall(this.KyberDAI, App.account);
-    const SimpleTokenbalance = await this.TokenBalanceOfCall(this.SimpleToken, App.account);
+    if(this.SimpleToken!=null) {
+      const SimpleTokenbalance = await this.TokenBalanceOfCall(this.SimpleToken, App.account);
 
-    const GetUniswapLiquidityPoolRes =await App.GetUniswapLiquidityPoolCall(
-      App.Tokenswap, 
-      App.SimpleToken._address
-    );
+      const GetUniswapLiquidityPoolRes =await App.GetUniswapLiquidityPoolCall(
+        App.Tokenswap, 
+        App.SimpleToken._address
+      );
+
+      const SimpleTokenbalanceElement = document.getElementsByClassName("SimpleTokenbalance")[0];
+      this.setElement_innerHTML(SimpleTokenbalanceElement, SimpleTokenbalance);
+
+      const UniswapSimpleTokenEthPoolElement = document.getElementsByClassName("UniswapSimpleTokenEthPool")[0];
+      App.setElement_innerHTML(UniswapSimpleTokenEthPoolElement, GetUniswapLiquidityPoolRes[0]);
+      
+      const UniswapSimpleTokenTokenPoolElement = document.getElementsByClassName("UniswapSimpleTokenTokenPool")[0];
+      App.setElement_innerHTML(UniswapSimpleTokenTokenPoolElement, GetUniswapLiquidityPoolRes[1]);
+    }
 
     const DAIbalanceElement = document.getElementsByClassName("DAIbalance")[0];
     this.setElement_innerHTML(DAIbalanceElement, DAIbalance);
     const KyberDAIbalanceElement = document.getElementsByClassName("KyberDAIbalance")[0];
     this.setElement_innerHTML(KyberDAIbalanceElement, KyberDAIbalance);
-    const SimpleTokenbalanceElement = document.getElementsByClassName("SimpleTokenbalance")[0];
-    this.setElement_innerHTML(SimpleTokenbalanceElement, SimpleTokenbalance);
-
-    const UniswapSimpleTokenEthPoolElement = document.getElementsByClassName("UniswapSimpleTokenEthPool")[0];
-    App.setElement_innerHTML(UniswapSimpleTokenEthPoolElement, GetUniswapLiquidityPoolRes[0]);
-    
-    const UniswapSimpleTokenTokenPoolElement = document.getElementsByClassName("UniswapSimpleTokenTokenPool")[0];
-    App.setElement_innerHTML(UniswapSimpleTokenTokenPoolElement, GetUniswapLiquidityPoolRes[1]);
 
     const GrowdropData_value = await App.GetGrowdropDataCall(App.GrowdropCall, App.latestGrowdrop, App.account);
     const GrowdropStateData_value = await App.GetGrowdropStateDataCall(App.GrowdropCall, App.latestGrowdrop, App.account);
