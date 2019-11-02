@@ -52,7 +52,7 @@ contract Tokenswap {
         CheckOwner[_Owner] = !CheckOwner[_Owner];
     }
     
-    function setGrowdropManager(address payable _Growdrop) public {
+    function setGrowdrop(address payable _Growdrop) public {
         require(CheckOwner[msg.sender]);
         growdrop = Growdrop(_Growdrop);
     }

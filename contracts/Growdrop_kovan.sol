@@ -7,7 +7,7 @@ import "./UniswapFactoryInterface.sol";
 import "./KyberNetworkProxyInterface.sol";
 import "./TokenswapInterface.sol";
 
-contract Growdrop {
+contract Growdrop_kovan {
     address public owner;
     mapping(address => bool) public CheckOwner;
     DonateTokenInterface public DonateToken;
@@ -36,6 +36,7 @@ contract Growdrop {
     mapping(uint256 => EIP20Interface) public GrowdropToken;
     mapping(uint256 => CTokenInterface) public CToken;
     
+    mapping(uint256 => EIP20Interface) public KyberToken;
     uint256 constant Minimum=10**14;
     uint256 constant ConstVal=10**18;
     uint256 public AllCTokenAmount;
@@ -109,6 +110,9 @@ contract Growdrop {
         ToUniswapInterestRate[GrowdropCount] = _ToUniswapInterestRate;
         
         DonateId[GrowdropCount] = _DonateId;
+        
+        //kovan address
+        KyberToken[GrowdropCount] = EIP20Interface(0xC4375B7De8af5a38a93548eb8453a498222C4fF2);
 
         EventIdx += 1;
         emit NewGrowdrop(EventIdx, GrowdropCount, BeneficiaryAddr);
@@ -221,12 +225,15 @@ contract Growdrop {
                 require(Token[_GrowdropCount].transfer(Beneficiary[_GrowdropCount], beneficiaryinterest));
                 
                 require(Token[_GrowdropCount].approve(address(Tokenswap), ToUniswapInterestRateCalculated));
+                swappedTokenAmount = Tokenswap.uniswapToken(address(Token[_GrowdropCount]),address(KyberToken[_GrowdropCount]),ToUniswapInterestRateCalculated);
+                
+                require(KyberToken[_GrowdropCount].approve(address(Tokenswap), swappedTokenAmount));
                 require(GrowdropToken[_GrowdropCount].approve(address(Tokenswap), ToUniswapTokenAmount[_GrowdropCount]));
                 bool success = Tokenswap.addPoolToUniswap(
-                    address(Token[_GrowdropCount]),
+                    address(KyberToken[_GrowdropCount]),
                     address(GrowdropToken[_GrowdropCount]),
                     Beneficiary[_GrowdropCount],
-                    ToUniswapInterestRateCalculated,
+                    swappedTokenAmount,
                     ToUniswapTokenAmount[_GrowdropCount]
                 );
                 if(success) {

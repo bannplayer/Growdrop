@@ -56,7 +56,7 @@ contract DonateToken is ERC721 {
         CheckOwner[_Owner] = !CheckOwner[_Owner];
     }
     
-    function setGrowdropManager(address payable _Growdrop) public {
+    function setGrowdrop(address payable _Growdrop) public {
         require(CheckOwner[msg.sender]);
         growdrop = Growdrop(_Growdrop);
     }
@@ -98,8 +98,8 @@ contract DonateToken is ERC721 {
         setInfoToTokenId(_from,to,tokenId);
     }
     
-    function safeTransferFrom(address _from, address to, uint256 tokenId) public {
-        super.safeTransferFrom(_from,to,tokenId);
+    function safeTransferFrom(address _from, address to, uint256 tokenId, bytes memory _data) public {
+        super.safeTransferFrom(_from,to,tokenId,_data);
         setInfoToTokenId(_from,to,tokenId);
     }
     
