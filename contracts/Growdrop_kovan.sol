@@ -48,30 +48,31 @@ contract Growdrop_kovan {
     mapping(uint256 => mapping(address => bool)) public CheckUserJoinedGrowdrop;
     
     event NewGrowdrop(
-        uint256 indexed _EventIdx,
-        uint256 indexed _Idx,
-        address indexed _Beneficiary
+        uint256 indexed event_idx,
+        uint256 indexed growdrop_count,
+        address indexed from
     );
     
     event GrowdropAction(
-        uint256 indexed _EventIdx,
-        uint256 indexed _GrowdropCount,
-        address indexed _From,
-        uint256 _Amount1,
-        uint256 _Amount2,
-        uint256 _ActionIdx
+        uint256 indexed event_idx,
+        uint256 indexed growdrop_count,
+        address indexed from,
+        uint256 amount1,
+        uint256 amount2,
+        uint256 action_idx
     );
 
     event DonateAction(
-        uint256 indexed _EventIdx,
-        address indexed _From,
-        address indexed _To,
-        address _Supporter,
-        address _Beneficiary,
-        address _Token,
-        uint256 _DonateId,
-        uint256 _Amount,
-        uint256 _ActionIdx
+        uint256 indexed event_idx,
+        address indexed from,
+        address indexed to,
+        address supporter,
+        address beneficiary,
+        address token_address,
+        uint256 donate_id,
+        uint256 token_id,
+        uint256 amount,
+        uint256 action_idx
     );
 
     constructor () public {
@@ -350,11 +351,12 @@ contract Growdrop_kovan {
         address beneficiary,
         address token,
         uint256 donateId,
+        uint256 tokenId,
         uint256 Amount,
         uint256 ActionIdx) public returns (uint256) {
         require(msg.sender==address(DonateToken));
         EventIdx += 1;
-        emit DonateAction(EventIdx, From, To, Supporter, beneficiary, token, donateId, Amount, ActionIdx);
+        emit DonateAction(EventIdx, From, To, Supporter, beneficiary, token, donateId, tokenId, Amount, ActionIdx);
         return EventIdx;
     }
     

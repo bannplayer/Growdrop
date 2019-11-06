@@ -38,12 +38,12 @@ contract DonateToken is ERC721 {
                 uint8 => uint256))) public MultihashToDonateId;
     
     event DonateEvent(
-        uint256 indexed _eventIdx,
-        address indexed _from,
-        uint256 indexed _donateId,
-        bytes32 _hash,
-        uint8 _hash_function,
-        uint8 _size
+        uint256 indexed event_idx,
+        address indexed from,
+        uint256 indexed donate_id,
+        bytes32 hash,
+        uint8 hash_function,
+        uint8 size
     );
     
     constructor (address payable _Growdrop) public {
@@ -75,6 +75,7 @@ contract DonateToken is ERC721 {
             address(0x0),
             donateId,
             0,
+            0,
             2
         );
         emit DonateEvent(eventIdx, msg.sender, donateId, _hash, hash_function, size);
@@ -89,7 +90,7 @@ contract DonateToken is ERC721 {
         _mint(supporter, tokenId);
         
         DonateInfoToTokenAmount[supporter][beneficiary][token][donateId] = DonateInfoToTokenAmount[supporter][beneficiary][token][donateId].add(amount);
-        growdrop.emitDonateActionEvent(address(0x0), supporter, supporter, beneficiary, token, donateId, amount, 0);
+        growdrop.emitDonateActionEvent(address(0x0), supporter, supporter, beneficiary, token, donateId, tokenId, amount, 0);
         return tokenId;
     }
     
@@ -114,6 +115,7 @@ contract DonateToken is ERC721 {
         donateInfo.beneficiary,
         donateInfo.tokenAddress,
         donateInfo.donateId,
+        tokenId,
         donateInfo.tokenAmount,
         1);
     }
