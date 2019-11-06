@@ -238,13 +238,29 @@ const App = {
   */
   getDonateEvent: function(receipt) {
     var ret = {
-      event_idx: receipt.events.DonateEvent.returnValues._eventIdx,
-      from: receipt.events.DonateEvent.returnValues._from,
-      donate_id: receipt.events.DonateEvent.returnValues._donateId,
-      hash: receipt.events.DonateEvent.returnValues._hash,
-      hash_function: receipt.events.DonateEvent.returnValues._hash_function,
-      size: receipt.events.DonateEvent.returnValues._size,
+      event_idx: receipt.events.DonateEvent.returnValues.event_idx,
+      from: receipt.events.DonateEvent.returnValues.from,
+      donate_id: receipt.events.DonateEvent.returnValues.donate_id,
+      hash: receipt.events.DonateEvent.returnValues.hash,
+      hash_function: receipt.events.DonateEvent.returnValues.hash_function,
+      size: receipt.events.DonateEvent.returnValues.size,
     };
+    return ret;
+  },
+
+  getDonateActionEvent: function(receipt) {
+    var ret = {
+      event_idx: receipt.events.DonateAction.returnValues.event_idx,
+      from: receipt.events.DonateAction.returnValues.from,
+      to: receipt.events.DonateAction.returnValues.to,
+      supporter: receipt.events.DonateAction.returnValues.supporter,
+      beneficiary: receipt.events.DonateAction.returnValues.beneficiary,
+      token_address: receipt.events.DonateAction.returnValues.token_address,
+      donate_id: receipt.events.DonateAction.returnValues.donate_id,
+      token_id: receipt.events.DonateAction.returnValues.token_id,
+      amount: receipt.events.DonateAction.returnValues.amount,
+      action_idx: receipt.events.DonateAction.returnValues.action_idx,
+    }
     return ret;
   },
 
@@ -254,30 +270,30 @@ const App = {
   getGrowdropEvent: function(receipt) {
     if(receipt.events.GrowdropAction.length==2) {
       var ret = [{
-        event_idx: receipt.events.GrowdropAction[0].returnValues._EventIdx,
-        growdrop_count: receipt.events.GrowdropAction[0].returnValues._GrowdropCount,
-        action_idx: receipt.events.GrowdropAction[0].returnValues._ActionIdx,
-        from: receipt.events.GrowdropAction[0].returnValues._From,
-        amount1: receipt.events.GrowdropAction[0].returnValues._Amount1,
-        amount2: receipt.events.GrowdropAction[0].returnValues._Amount2,
+        event_idx: receipt.events.GrowdropAction[0].returnValues.event_idx,
+        growdrop_count: receipt.events.GrowdropAction[0].returnValues.growdrop_count,
+        action_idx: receipt.events.GrowdropAction[0].returnValues.action_idx,
+        from: receipt.events.GrowdropAction[0].returnValues.from,
+        amount1: receipt.events.GrowdropAction[0].returnValues.amount1,
+        amount2: receipt.events.GrowdropAction[0].returnValues.amount2,
       },
       {
-        event_idx: receipt.events.GrowdropAction[1].returnValues._EventIdx,
-        growdrop_count: receipt.events.GrowdropAction[1].returnValues._GrowdropCount,
-        action_idx: receipt.events.GrowdropAction[1].returnValues._ActionIdx,
-        from: receipt.events.GrowdropAction[1].returnValues._From,
-        amount1: receipt.events.GrowdropAction[1].returnValues._Amount1,
-        amount2: receipt.events.GrowdropAction[1].returnValues._Amount2,
+        event_idx: receipt.events.GrowdropAction[1].returnValues.event_idx,
+        growdrop_count: receipt.events.GrowdropAction[1].returnValues.growdrop_count,
+        action_idx: receipt.events.GrowdropAction[1].returnValues.action_idx,
+        from: receipt.events.GrowdropAction[1].returnValues.from,
+        amount1: receipt.events.GrowdropAction[1].returnValues.amount1,
+        amount2: receipt.events.GrowdropAction[1].returnValues.amount2,
       }]
       return ret;
     }
     var ret = {
-      event_idx: receipt.events.GrowdropAction.returnValues._EventIdx,
-      growdrop_count: receipt.events.GrowdropAction.returnValues._GrowdropCount,
-      action_idx: receipt.events.GrowdropAction.returnValues._ActionIdx,
-      from: receipt.events.GrowdropAction.returnValues._From,
-      amount1: receipt.events.GrowdropAction.returnValues._Amount1,
-      amount2: receipt.events.GrowdropAction.returnValues._Amount2
+      event_idx: receipt.events.GrowdropAction.returnValues.event_idx,
+      growdrop_count: receipt.events.GrowdropAction.returnValues.growdrop_count,
+      action_idx: receipt.events.GrowdropAction.returnValues.action_idx,
+      from: receipt.events.GrowdropAction.returnValues.from,
+      amount1: receipt.events.GrowdropAction.returnValues.amount1,
+      amount2: receipt.events.GrowdropAction.returnValues.amount2
     };
     return ret;
   },
@@ -809,19 +825,15 @@ const App = {
   AddFileToIpfs: async function(event) {
     event.preventDefault();
     var ipfsId;
-    App.setStatus("ipfs saving...");
-    await App.ipfs.add([...event.target.files], { progress: (prog) => console.log(`received: ${prog}`) })
-    .then(async function(response) {
-      console.log(response)
-      App.setStatus("ipfs pinning...");
-      ipfsId = response[0].hash
-      return await App.ipfs.pin.add(ipfsId)
-    }).then(async function(response) {
-      await App.CheckDonateIdAndSet(ipfsId);
-      console.log("https://ipfs.io/ipfs/"+ipfsId);
-    }).catch((err) => {
-      console.error(err)
-    });
+    //App.setStatus("ipfs saving...");
+    //console.log("ipfs saving");
+    const response = await App.ipfs.add([...event.target.files])
+    ipfsId=response[0].hash;
+    //console.log(ipfsId);
+    await App.ipfs.pin.add(ipfsId);
+    //console.log("https://ipfs.io/ipfs/"+ipfsId);
+    const donateId = await App.CheckDonateIdAndSet(ipfsId);
+    return donateId;
   },
 
   CheckDonateIdAndSet: async function(ipfshash) {
