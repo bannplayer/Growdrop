@@ -1,6 +1,9 @@
 pragma solidity ^0.5.11;
 
 contract UniswapExchangeInterface {
+    /**
+     * @dev UniswapExchange interface
+     */
     function addLiquidity(uint256 min_liquidity, uint256 max_tokens, uint256 deadline) external payable returns (uint256);
     function getTokenToEthInputPrice(uint256 tokens_sold) external view returns (uint256 eth_bought);
     function getTokenToEthOutputPrice(uint256 eth_bought) external view returns (uint256 tokens_sold);

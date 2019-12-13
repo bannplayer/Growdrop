@@ -1,6 +1,8 @@
 pragma solidity ^0.5.11;
 
 import "./Growdrop.sol";
+import "./CTokenInterface.sol";
+import "./EIP20Interface.sol";
 
 contract GrowdropCall {
     Growdrop growdrop;
@@ -13,12 +15,12 @@ contract GrowdropCall {
     }
 
     function addOwner(address _Owner) public {
-        require(CheckOwner[msg.sender]);
+        require(CheckOwner[msg.sender], "not owner");
         CheckOwner[_Owner] = !CheckOwner[_Owner];
     }
 
     function setGrowdrop(address payable _Growdrop) public {
-        require(CheckOwner[msg.sender]);
+        require(CheckOwner[msg.sender], "not owner");
         growdrop = Growdrop(_Growdrop);
     }
     
@@ -27,14 +29,16 @@ contract GrowdropCall {
         address,
         uint256,
         uint256,
-        uint256
+        uint256,
+        bool
         ) {
         return (
             address(growdrop.GrowdropToken(_GrowdropCount)),
             growdrop.Beneficiary(_GrowdropCount),
             growdrop.GrowdropAmount(_GrowdropCount),
             growdrop.ToUniswapTokenAmount(_GrowdropCount),
-            growdrop.ToUniswapInterestRate(_GrowdropCount)
+            growdrop.ToUniswapInterestRate(_GrowdropCount),
+            growdrop.AddToUniswap(_GrowdropCount)
         );
     }
 
@@ -56,13 +60,27 @@ contract GrowdropCall {
         uint256,
         uint256,
         uint256,
-        uint256
+        uint256,
+        uint256,
+        bool
     ) {
         return (
             growdrop.TotalCTokenAmount(_GrowdropCount),
             growdrop.TotalMintedAmount(_GrowdropCount),
             growdrop.CTokenPerAddress(_GrowdropCount, msg.sender),
-            growdrop.InvestAmountPerAddress(_GrowdropCount, msg.sender)
+            growdrop.InvestAmountPerAddress(_GrowdropCount, msg.sender),
+            growdrop.ExchangeRateOver(_GrowdropCount)==0 ? growdrop.CToken(_GrowdropCount).exchangeRateStored() : growdrop.ExchangeRateOver(_GrowdropCount),
+            growdrop.WithdrawOver(_GrowdropCount, msg.sender)
+        );
+    }
+    
+    function getTokenInfo(uint256 _GrowdropCount) public view returns (uint256, uint256, uint256) {
+        EIP20Interface token = EIP20Interface(growdrop.Token(_GrowdropCount));
+        EIP20Interface growdropToken = EIP20Interface(growdrop.GrowdropToken(_GrowdropCount));
+        return (
+            token.balanceOf(msg.sender),
+            token.allowance(msg.sender, address(growdrop)),
+            growdropToken.allowance(msg.sender, address(growdrop))
         );
     }
 }
