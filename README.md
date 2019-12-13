@@ -100,25 +100,5 @@ Funding the Evolution of Blockchains:  https://medium.com/@FEhrsam/funding-the-e
 *Please give us feedback as it is a new defi model !!
 
 
-# Test with metamask and torus
-Write your mnemonic key to .secret.
-
-Write your infura project key to truffle-config.js kovan network endpoint.
-
-In project root directory
-## truffle migrate --network kovan
-## cd app && npm install
-## npm run dev
-Open localhost:8080 with chrome browser.
-
-Click metamask login button.
-
-In browser console
-## App.Growdrop.methods.setDonateToken(App.DonateToken._address).send({from:App.account});
-## App.Growdrop.methods.setTokenswap(App.Tokenswap._address).send({from:App.account});
-
-Starting growdrop needs to be approved before by SimpleToken.
-
-Starting growdrop can only be done by beneficiary. 
-
-Minting needs to be approved before by DAI.
+# You can test it on here : http://dev.growdrop.io
+# If you have any issues, please message to Telegram!
