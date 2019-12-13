@@ -100,5 +100,5 @@ Funding the Evolution of Blockchains:  https://medium.com/@FEhrsam/funding-the-e
 *Please give us feedback as it is a new defi model !!
 
 
-# You can test it on here : http://dev.growdrop.io
+# You can test it on here, currently updating : http://dev.growdrop.io
 # If you have any issues, please message to Telegram!
