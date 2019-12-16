@@ -229,6 +229,7 @@ contract Growdrop {
     /**
      * @dev Create new Growdrop.
      * Only Address that 'CheckOwner' is true can call.
+     * 'GrowdropTokenAddr' cannot be tokens which is in Compound's available markets.
      * 
      * Emits {NewGrowdrop} event indicating Growdrop's identifier.
      * 
@@ -257,8 +258,8 @@ contract Growdrop {
 
         require(CheckOwner[msg.sender]);
         require(DonateToken.DonateIdOwner(_DonateId)==BeneficiaryAddr || _DonateId==0);
-        require(_ToUniswapTokenAmount==0 || (_ToUniswapInterestRate>0 && _ToUniswapInterestRate<101-CurrentOwnerFeePercent && _ToUniswapTokenAmount>1e14));
-        require(_DonateId!=0 || _GrowdropAmount>1e14);
+        require(_ToUniswapTokenAmount==0 || (_ToUniswapInterestRate>0 && _ToUniswapInterestRate<101-CurrentOwnerFeePercent && _ToUniswapTokenAmount>1e9));
+        require(_DonateId!=0 || _GrowdropAmount>1e9);
         Add(_GrowdropAmount,_ToUniswapTokenAmount);
         
         GrowdropCount += 1;
@@ -417,8 +418,8 @@ contract Growdrop {
         if(TotalCTokenAmount[_GrowdropCount]==0) {
             return;
         }
-        //If investee did not want to add to UniswapExchange or 'Token' and 'GrowdropToken' is same, does not add to UniswapExchange.
-        if(!AddToUniswap[_GrowdropCount] || Token[_GrowdropCount]==GrowdropToken[_GrowdropCount]) {
+        //If investee did not want to add to UniswapExchange, does not add to UniswapExchange.
+        if(!AddToUniswap[_GrowdropCount]) {
             ToUniswap = false;
         }
         //If caller is investee
@@ -454,12 +455,12 @@ contract Growdrop {
             emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, beneficiaryinterest, success ? 1 : 0, 2, now);
         } else {
             //If caller is investor
-            uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], ConstVal);
-            uint256 investorTotalInterest = Sub(investorTotalAmount, InvestAmountPerAddress[_GrowdropCount][msg.sender]);
+            uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], ConstVal)+1;
+            uint256 investorTotalInterest = investorTotalAmount>=InvestAmountPerAddress[_GrowdropCount][msg.sender] ? investorTotalAmount-InvestAmountPerAddress[_GrowdropCount][msg.sender] : 0;
             uint256 tokenByInterest = MulAndDiv(
                 GrowdropAmount[_GrowdropCount],
                 investorTotalInterest,
-                TotalInterestOver[_GrowdropCount]
+                (TotalInterestOver[_GrowdropCount]==0 ? 1 : TotalInterestOver[_GrowdropCount])
             );
             if(DonateId[_GrowdropCount]!=0) tokenByInterest = investorTotalInterest;
             tokenByInterest = sendTokenInWithdraw(_GrowdropCount, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], tokenByInterest);
@@ -494,7 +495,7 @@ contract Growdrop {
     
     /**
      * @dev Ends Growdrop by '_GrowdropCount'.
-     * If total funded CToken is 0 and Growdrop is not donation, transfers 'GrowdropAmount' and 'ToUniswapTokenAmount' back to 'Beneficiary'.
+     * If total funded CToken is lower than 'TokenMinimum' and Growdrop is not donation, transfers 'GrowdropAmount' and 'ToUniswapTokenAmount' back to 'Beneficiary'.
      * Total accrued interest is calculated -> maximum amount of Growdrop's all CToken to ERC20 token - total funded ERC20 amount of Growdrop.
      * 
      * Emits {GrowdropAction} event indicating Growdrop's identifier and event information.
@@ -507,9 +508,13 @@ contract Growdrop {
             GrowdropOver[_GrowdropCount] = true;
             
             ExchangeRateOver[_GrowdropCount] = CToken[_GrowdropCount].exchangeRateCurrent();
-            uint256 _toAmount = MulAndDiv(Add(TotalCTokenAmount[_GrowdropCount],1), ExchangeRateOver[_GrowdropCount], ConstVal);
+            uint256 _toAmount = MulAndDiv(TotalCTokenAmount[_GrowdropCount]+1, ExchangeRateOver[_GrowdropCount], ConstVal);
 
-            if(TotalCTokenAmount[_GrowdropCount]==0) {
+            if(TotalCTokenAmount[_GrowdropCount]!=0) {
+                require(CToken[_GrowdropCount].redeemUnderlying(_toAmount)==0, "error in redeem");
+            }
+            TotalInterestOver[_GrowdropCount] = Sub(_toAmount, TotalMintedAmount[_GrowdropCount]);
+            if(TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount]) {
                 if(DonateId[_GrowdropCount]==0) {
                     require(
                         GrowdropToken[_GrowdropCount].transfer(
@@ -519,10 +524,7 @@ contract Growdrop {
                         "transfer growdrop error"
                     );
                 }
-            } else {
-                require(CToken[_GrowdropCount].redeemUnderlying(_toAmount)==0, "error in redeem");
             }
-            TotalInterestOver[_GrowdropCount] = Sub(_toAmount, TotalMintedAmount[_GrowdropCount]);
             
             EventIdx += 1;
             emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, 0, 0, 6, now);
