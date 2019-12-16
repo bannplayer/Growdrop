@@ -263,7 +263,7 @@ contract Growdrop {
         
         GrowdropCount += 1;
         GrowdropOwnerFeePercent[GrowdropCount] = CurrentOwnerFeePercent;
-        AddToUniswap[GrowdropCount] = (_ToUniswapTokenAmount==0 || _DonateId!=0) ? false : true;
+        AddToUniswap[GrowdropCount] = _ToUniswapTokenAmount==0 ? false : true;
         TokenMinimum[GrowdropCount] = _TokenMinimum;
 
         Token[GrowdropCount] = EIP20Interface(TokenAddr);
