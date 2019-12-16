@@ -263,7 +263,7 @@ contract Growdrop {
         
         GrowdropCount += 1;
         GrowdropOwnerFeePercent[GrowdropCount] = CurrentOwnerFeePercent;
-        AddToUniswap[GrowdropCount] = _ToUniswapTokenAmount==0 ? false : true;
+        AddToUniswap[GrowdropCount] = (_ToUniswapTokenAmount==0 || _DonateId!=0) ? false : true;
         TokenMinimum[GrowdropCount] = _TokenMinimum;
 
         Token[GrowdropCount] = EIP20Interface(TokenAddr);
@@ -418,7 +418,7 @@ contract Growdrop {
             return;
         }
         //If investee did not want to add to UniswapExchange or 'Token' and 'GrowdropToken' is same, does not add to UniswapExchange.
-        if(AddToUniswap[_GrowdropCount] || Token[_GrowdropCount]==GrowdropToken[_GrowdropCount]) {
+        if(!AddToUniswap[_GrowdropCount] || Token[_GrowdropCount]==GrowdropToken[_GrowdropCount]) {
             ToUniswap = false;
         }
         //If caller is investee
