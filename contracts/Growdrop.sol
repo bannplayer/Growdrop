@@ -414,16 +414,16 @@ contract Growdrop {
         WithdrawOver[_GrowdropCount][msg.sender] = true;
         
         EndGrowdrop(_GrowdropCount);
-        //If all invested funds are 0, do nothing.
-        if(TotalCTokenAmount[_GrowdropCount]==0) {
-            return;
-        }
         //If investee did not want to add to UniswapExchange, does not add to UniswapExchange.
         if(!AddToUniswap[_GrowdropCount]) {
             ToUniswap = false;
         }
         //If caller is investee
         if(msg.sender==Beneficiary[_GrowdropCount]) {
+            //If all invested funds are below 'TokenMinimum', do nothing.
+            if(TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount]) {
+                return;
+            }
             uint256 OwnerFee = MulAndDiv(TotalInterestOver[_GrowdropCount], GrowdropOwnerFeePercent[_GrowdropCount], 100);
             uint256 beneficiaryinterest;
             bool success;
@@ -456,7 +456,7 @@ contract Growdrop {
         } else {
             //If caller is investor
             uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], ConstVal)+1;
-            uint256 investorTotalInterest = investorTotalAmount>=InvestAmountPerAddress[_GrowdropCount][msg.sender] ? investorTotalAmount-InvestAmountPerAddress[_GrowdropCount][msg.sender] : 0;
+            uint256 investorTotalInterest = (TotalInterestOver[_GrowdropCount]>TokenMinimum[_GrowdropCount] || investorTotalAmount>InvestAmountPerAddress[_GrowdropCount][msg.sender]) ? investorTotalAmount-InvestAmountPerAddress[_GrowdropCount][msg.sender] : 0;
             uint256 tokenByInterest = MulAndDiv(
                 GrowdropAmount[_GrowdropCount],
                 investorTotalInterest,
@@ -516,13 +516,11 @@ contract Growdrop {
             TotalInterestOver[_GrowdropCount] = Sub(_toAmount, TotalMintedAmount[_GrowdropCount]);
             if(TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount]) {
                 if(DonateId[_GrowdropCount]==0) {
-                    require(
+                    
                         GrowdropToken[_GrowdropCount].transfer(
                             Beneficiary[_GrowdropCount],
-                            Add(GrowdropAmount[_GrowdropCount],ToUniswapTokenAmount[_GrowdropCount])
-                        ),
-                        "transfer growdrop error"
-                    );
+                            GrowdropAmount[_GrowdropCount]+ToUniswapTokenAmount[_GrowdropCount]
+                        );
                 }
             }
             
