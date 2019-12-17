@@ -143,11 +143,6 @@ contract Growdrop {
     mapping(uint256 => uint256) public TokenMinimum;
     
     /**
-     * @notice Constant Value to calculate
-     */
-    uint256 constant ConstVal=1e18;
-    
-    /**
      * @notice Compound CToken amount of all Growdrops by CToken address
      */
     mapping(address => uint256) public AllCTokenAmount;
@@ -371,7 +366,7 @@ contract Growdrop {
         uint256 _ctoken;
         uint256 _toMinAmount;
         (_ctoken,_toMinAmount) = toMinAmount(Amount, _exchangeRateCurrent);
-        require(_ctoken<=MulAndDiv(InvestAmountPerAddress[_GrowdropCount][msg.sender], ConstVal, _exchangeRateCurrent), "redeem too big");
+        require(_ctoken<=MulAndDiv(InvestAmountPerAddress[_GrowdropCount][msg.sender], 1e18, _exchangeRateCurrent), "redeem too big");
 
         CTokenPerAddress[_GrowdropCount][msg.sender] = Sub(CTokenPerAddress[_GrowdropCount][msg.sender], _ctoken);
         TotalCTokenAmount[_GrowdropCount] = Sub(TotalCTokenAmount[_GrowdropCount],_ctoken);
@@ -422,6 +417,8 @@ contract Growdrop {
         if(msg.sender==Beneficiary[_GrowdropCount]) {
             //If all invested funds are below 'TokenMinimum', do nothing.
             if(TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount]) {
+                EventIdx += 1;
+                emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, 0, 0, 2, now);
                 return;
             }
             uint256 OwnerFee = MulAndDiv(TotalInterestOver[_GrowdropCount], GrowdropOwnerFeePercent[_GrowdropCount], 100);
@@ -429,7 +426,7 @@ contract Growdrop {
             bool success;
             if(ToUniswap) {
                 uint256 ToUniswapInterestRateCalculated = MulAndDiv(TotalInterestOver[_GrowdropCount], ToUniswapInterestRate[_GrowdropCount], 100);
-                beneficiaryinterest = Sub(Sub(TotalInterestOver[_GrowdropCount],ToUniswapInterestRateCalculated),OwnerFee);
+                beneficiaryinterest = TotalInterestOver[_GrowdropCount]-ToUniswapInterestRateCalculated-OwnerFee;
                 require(Token[_GrowdropCount].transfer(Beneficiary[_GrowdropCount], beneficiaryinterest), "transfer interest error");
                 
                 require(Token[_GrowdropCount].approve(address(Tokenswap), ToUniswapInterestRateCalculated), "approve token error");
@@ -455,14 +452,14 @@ contract Growdrop {
             emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, beneficiaryinterest, success ? 1 : 0, 2, now);
         } else {
             //If caller is investor
-            uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], ConstVal)+1;
+            uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], 1e18)+1;
             uint256 investorTotalInterest = (TotalInterestOver[_GrowdropCount]>TokenMinimum[_GrowdropCount] || investorTotalAmount>InvestAmountPerAddress[_GrowdropCount][msg.sender]) ? investorTotalAmount-InvestAmountPerAddress[_GrowdropCount][msg.sender] : 0;
-            uint256 tokenByInterest = MulAndDiv(
+            
+            uint256 tokenByInterest = DonateId[_GrowdropCount]==0 ? MulAndDiv(
                 GrowdropAmount[_GrowdropCount],
                 investorTotalInterest,
                 (TotalInterestOver[_GrowdropCount]==0 ? 1 : TotalInterestOver[_GrowdropCount])
-            );
-            if(DonateId[_GrowdropCount]!=0) tokenByInterest = investorTotalInterest;
+            ) : investorTotalInterest;
             tokenByInterest = sendTokenInWithdraw(_GrowdropCount, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], tokenByInterest);
 
             TotalUserInvestedAmount[msg.sender][address(Token[_GrowdropCount])] = Sub(TotalUserInvestedAmount[msg.sender][address(Token[_GrowdropCount])], InvestAmountPerAddress[_GrowdropCount][msg.sender]);
@@ -508,24 +505,25 @@ contract Growdrop {
             GrowdropOver[_GrowdropCount] = true;
             
             ExchangeRateOver[_GrowdropCount] = CToken[_GrowdropCount].exchangeRateCurrent();
-            uint256 _toAmount = MulAndDiv(TotalCTokenAmount[_GrowdropCount]+1, ExchangeRateOver[_GrowdropCount], ConstVal);
+            uint256 _toAmount = MulAndDiv(TotalCTokenAmount[_GrowdropCount]+1, ExchangeRateOver[_GrowdropCount], 1e18);
 
             if(TotalCTokenAmount[_GrowdropCount]!=0) {
                 require(CToken[_GrowdropCount].redeemUnderlying(_toAmount)==0, "error in redeem");
             }
-            TotalInterestOver[_GrowdropCount] = Sub(_toAmount, TotalMintedAmount[_GrowdropCount]);
+            TotalInterestOver[_GrowdropCount] = _toAmount>TotalMintedAmount[_GrowdropCount] ? _toAmount-TotalMintedAmount[_GrowdropCount] : 0;
             if(TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount]) {
                 if(DonateId[_GrowdropCount]==0) {
-                    
+                    require(
                         GrowdropToken[_GrowdropCount].transfer(
                             Beneficiary[_GrowdropCount],
                             GrowdropAmount[_GrowdropCount]+ToUniswapTokenAmount[_GrowdropCount]
-                        );
+                        )
+                    );
                 }
             }
             
             EventIdx += 1;
-            emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, 0, 0, 6, now);
+            emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount] ? 1 : 0, 0, 6, now);
         }
     }
     
@@ -618,7 +616,7 @@ contract Growdrop {
      * @param DonateTokenAddress 'DonateToken' contract address
      */
     function setDonateToken(address DonateTokenAddress) public {
-        require(CheckOwner[msg.sender], "not owner");
+        require(CheckOwner[msg.sender]);
         DonateToken = DonateTokenInterface(DonateTokenAddress);
     }
     
@@ -627,7 +625,7 @@ contract Growdrop {
      * @param TokenswapAddress 'Tokenswap' contract address
      */
     function setTokenswap(address TokenswapAddress) public {
-        require(CheckOwner[msg.sender], "not owner");
+        require(CheckOwner[msg.sender]);
         Tokenswap = TokenswapInterface(TokenswapAddress);
     }
     
@@ -636,7 +634,7 @@ contract Growdrop {
      * @param _Owner address to change state
      */
     function addOwner(address _Owner) public {
-        require(CheckOwner[msg.sender], "not owner");
+        require(CheckOwner[msg.sender]);
         CheckOwner[_Owner] = !CheckOwner[_Owner];
     }
     
