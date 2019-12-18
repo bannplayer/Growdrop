@@ -453,11 +453,11 @@ contract Growdrop {
         } else {
             //If caller is investor
             uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], 1e18)+1;
-            uint256 investorTotalInterest = (TotalInterestOver[_GrowdropCount]>TokenMinimum[_GrowdropCount] || investorTotalAmount>InvestAmountPerAddress[_GrowdropCount][msg.sender]) ? investorTotalAmount-InvestAmountPerAddress[_GrowdropCount][msg.sender] : 0;
+            uint256 investorTotalInterest = (TotalInterestOver[_GrowdropCount]>TokenMinimum[_GrowdropCount] && investorTotalAmount>InvestAmountPerAddress[_GrowdropCount][msg.sender]) ? investorTotalAmount-InvestAmountPerAddress[_GrowdropCount][msg.sender] : 0;
             
             uint256 tokenByInterest = DonateId[_GrowdropCount]==0 ? MulAndDiv(
-                GrowdropAmount[_GrowdropCount],
                 investorTotalInterest,
+                GrowdropAmount[_GrowdropCount],
                 (TotalInterestOver[_GrowdropCount]==0 ? 1 : TotalInterestOver[_GrowdropCount])
             ) : investorTotalInterest;
             tokenByInterest = sendTokenInWithdraw(_GrowdropCount, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], tokenByInterest);
