@@ -80,7 +80,7 @@ contract GrowdropCall {
         return (
             token.balanceOf(msg.sender),
             token.allowance(msg.sender, address(growdrop)),
-            growdropToken.allowance(msg.sender, address(growdrop))
+            growdrop.DonateId(_GrowdropCount)==0 ? growdropToken.allowance(msg.sender, address(growdrop)) : 1
         );
     }
 }
