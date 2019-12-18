@@ -261,14 +261,12 @@ contract Tokenswap {
             //if not, calculate ether and token amount to add liquidity
             uint256 max_token;
             uint256 token_reserve = UniswapAddPoolToken.balanceOf(address(UniswapAddPoolTokenExchange));
-            max_token = Add(MulAndDiv(TokenToEthAmount, token_reserve, eth_reserve),1);
-            min_liquidity = MulAndDiv(TokenToEthAmount, total_liquidity, eth_reserve);
+            max_token = Add(MulAndDiv(token_reserve, TokenToEthAmount, eth_reserve),1);
+            min_liquidity = MulAndDiv(total_liquidity, TokenToEthAmount, eth_reserve);
             //if max token amount calculated by calculated ether is bigger than current token amount, recalculate
             if(max_token>UniswapAddPoolTokenAmount) {
                 //recalculate ether amount based on current token amount
-                uint256 lowerEthAmount = MulAndDiv(Sub(UniswapAddPoolTokenAmount,1), eth_reserve, token_reserve);
-                max_token = Add(MulAndDiv(lowerEthAmount, token_reserve, eth_reserve),1);
-                min_liquidity = MulAndDiv(lowerEthAmount, total_liquidity, eth_reserve);
+                uint256 lowerEthAmount = MulAndDiv(eth_reserve, UniswapAddPoolTokenAmount-1, token_reserve);
                 
                 //recalculate token amount based on recalculated ether amount
                 uint256 lowerTokenAmount;
@@ -277,12 +275,15 @@ contract Tokenswap {
                 } else {
                     (minConversionRate, lowerTokenAmount) = calculateTokenAmountByEthAmountKyber(address(0x0), lowerEthAmount);
                 }
-                //if recalculated ether swapping token cannot be swapped, return false 
-                if(minConversionRate==0) {
+                //if recalculated ether swapping token cannot be swapped or cannot be added to liquidity, return false 
+                if(minConversionRate==0 || lowerEthAmount<1000000000) {
                     require(EthSwapToken.transfer(Beneficiary, EthSwapTokenAmount), "kyberswap, transfer interests error");
                     require(UniswapAddPoolToken.transfer(Beneficiary, UniswapAddPoolTokenAmount), "kyberswap, transfer growdrop error");
                     return false;
                 }
+                
+                max_token = Add(MulAndDiv(token_reserve, lowerEthAmount, eth_reserve),1);
+                min_liquidity = MulAndDiv(total_liquidity, lowerEthAmount, eth_reserve);
                 
                 //if not, add liquidity with recalculated ether and token
                 changeTokenToEth_AddLiquidity_Transfer(
