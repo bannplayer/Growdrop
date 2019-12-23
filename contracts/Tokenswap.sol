@@ -239,7 +239,6 @@ contract Tokenswap {
         //if 'EthSwapTokenAmount' cannot be swapped to ether, return false
         if(TokenToEthAmount<=KyberSwapMinimum || slippageRate == 0) {
             require(EthSwapToken.transfer(Beneficiary, EthSwapTokenAmount), "transfer interests to beneficiary error");
-            require(UniswapAddPoolToken.transfer(Beneficiary, UniswapAddPoolTokenAmount), "transfer growdrop to beneficiary error");
             return false;
         }
         
@@ -278,7 +277,6 @@ contract Tokenswap {
                 //if recalculated ether swapping token cannot be swapped or cannot be added to liquidity, return false 
                 if(minConversionRate==0 || lowerEthAmount<1000000000) {
                     require(EthSwapToken.transfer(Beneficiary, EthSwapTokenAmount), "kyberswap, transfer interests error");
-                    require(UniswapAddPoolToken.transfer(Beneficiary, UniswapAddPoolTokenAmount), "kyberswap, transfer growdrop error");
                     return false;
                 }
                 

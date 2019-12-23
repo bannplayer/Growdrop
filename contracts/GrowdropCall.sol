@@ -46,13 +46,15 @@ contract GrowdropCall {
         uint256,
         uint256,
         bool,
-        bool
+        bool,
+        uint256
     ) {
         return (
             growdrop.GrowdropStartTime(_GrowdropCount),
             growdrop.GrowdropEndTime(_GrowdropCount),
             growdrop.GrowdropStart(_GrowdropCount),
-            growdrop.GrowdropOver(_GrowdropCount)
+            growdrop.GrowdropOver(_GrowdropCount),
+            growdrop.ExchangeRateOver(_GrowdropCount)==0 ? growdrop.CToken(_GrowdropCount).exchangeRateStored() : growdrop.ExchangeRateOver(_GrowdropCount)
         );
     }
 
@@ -61,16 +63,18 @@ contract GrowdropCall {
         uint256,
         uint256,
         uint256,
+        bool,
         uint256,
-        bool
+        uint256
     ) {
         return (
             growdrop.TotalCTokenAmount(_GrowdropCount),
             growdrop.TotalMintedAmount(_GrowdropCount),
             growdrop.CTokenPerAddress(_GrowdropCount, msg.sender),
             growdrop.InvestAmountPerAddress(_GrowdropCount, msg.sender),
-            growdrop.ExchangeRateOver(_GrowdropCount)==0 ? growdrop.CToken(_GrowdropCount).exchangeRateStored() : growdrop.ExchangeRateOver(_GrowdropCount),
-            growdrop.WithdrawOver(_GrowdropCount, msg.sender)
+            growdrop.WithdrawOver(_GrowdropCount, msg.sender),
+            growdrop.ActualCTokenPerAddress(_GrowdropCount, msg.sender),
+            growdrop.ActualPerAddress(_GrowdropCount, msg.sender)
         );
     }
     
@@ -80,7 +84,7 @@ contract GrowdropCall {
         return (
             token.balanceOf(msg.sender),
             token.allowance(msg.sender, address(growdrop)),
-            growdrop.DonateId(_GrowdropCount)==0 ? growdropToken.allowance(msg.sender, address(growdrop)) : 1
+            address(growdropToken)==address(0x0) ? 0 : (growdrop.DonateId(_GrowdropCount)==0 ? growdropToken.allowance(msg.sender, address(growdrop)) : 1)
         );
     }
 }

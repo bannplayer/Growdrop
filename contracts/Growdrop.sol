@@ -53,9 +53,19 @@ contract Growdrop {
     mapping(uint256 => mapping(address => uint256)) public CTokenPerAddress;
     
     /**
-     * @notice funded ERC20 token amount per investor address by Growdrop's identifier
+     * @notice Funded ERC20 token amount per investor address by Growdrop's identifier
      */
     mapping(uint256 => mapping(address => uint256)) public InvestAmountPerAddress;
+    
+    /**
+     * @notice Actual amount per investor address by Growdrop's identifier
+     */
+    mapping(uint256 => mapping(address => uint256)) public ActualPerAddress;
+    
+    /**
+     * @notice Actual Compound CToken amount per investor address by Growdrop's identifier
+     */
+    mapping(uint256 => mapping(address => uint256)) public ActualCTokenPerAddress;
     
     /**
      * @notice Check whether address withdrawn or not by Growdrop's identifier
@@ -88,6 +98,16 @@ contract Growdrop {
     mapping(uint256 => uint256) public TotalCTokenAmount;
     
     /**
+     * @notice Growdrop's total actual amount by Growdrop's identifier
+     */
+    mapping(uint256 => uint256) public TotalMintedActual;
+    
+    /**
+     * @notice Growdrop's total actual Compound CToken amount by Growdrop's identifier
+     */
+    mapping(uint256 => uint256) public TotalCTokenActual;
+    
+    /**
      * @notice Compound's exchange rate when Growdrop is over by Growdrop's identifier
      */
     mapping(uint256 => uint256) public ExchangeRateOver;
@@ -96,6 +116,11 @@ contract Growdrop {
      * @notice Growdrop's total accrued interest when Growdrop is over by Growdrop's identifier
      */
     mapping(uint256 => uint256) public TotalInterestOver;
+    
+    /**
+     * @notice Growdrop's total actual accrued interest when Growdrop is over by Growdrop's identifier
+     */
+    mapping(uint256 => uint256) public TotalInterestOverActual;
     
     /**
      * @notice ERC20 token amount to add to UniswapExchange by Growdrop's identifier
@@ -136,21 +161,6 @@ contract Growdrop {
      * @notice Compound CToken by Growdrop's identifier
      */
     mapping(uint256 => CTokenInterface) public CToken;
-    
-    /**
-     * @notice ERC20 token minimum amount to fund or refund by Growdrop's identifier
-     */
-    mapping(uint256 => uint256) public TokenMinimum;
-    
-    /**
-     * @notice Compound CToken amount of all Growdrops by CToken address
-     */
-    mapping(address => uint256) public AllCTokenAmount;
-    
-    /**
-     * @notice ERC20 token amount of all Growdrops by ERC20 token address
-     */
-    mapping(address => uint256) public AllInvestAmount;
     
     /**
      * @notice Percentage of owner fee to get from Growdrop's total accrued interest by Growdrop's identifier
@@ -237,7 +247,6 @@ contract Growdrop {
      * @param _ToUniswapTokenAmount ERC20 token amount to add to UniswapExchange. If project does not want to add liquidity to UniswapExchage at all, 0.
      * @param _ToUniswapInterestRate percentage of Growdrop's accrued interest amount to add liquidity to UniswapExchange. 
      * @param _DonateId Growdrop's donation identifier. If Growdrop is donation, not 0. else 0
-     * @param _TokenMinimum minimum ERC20 token amount to fund or refund
      */
     function newGrowdrop(
         address TokenAddr,
@@ -248,19 +257,17 @@ contract Growdrop {
         uint256 GrowdropPeriod,
         uint256 _ToUniswapTokenAmount,
         uint256 _ToUniswapInterestRate,
-        uint256 _DonateId,
-        uint256 _TokenMinimum) public {
+        uint256 _DonateId) public {
 
         require(CheckOwner[msg.sender]);
         require(DonateToken.DonateIdOwner(_DonateId)==BeneficiaryAddr || _DonateId==0);
-        require(_ToUniswapTokenAmount==0 || (_ToUniswapInterestRate>0 && _ToUniswapInterestRate<101-CurrentOwnerFeePercent && _ToUniswapTokenAmount>1e9));
-        require(_DonateId!=0 || _GrowdropAmount>1e9);
+        require(_ToUniswapTokenAmount==0 || (_ToUniswapInterestRate>0 && _ToUniswapInterestRate<101-CurrentOwnerFeePercent && _ToUniswapTokenAmount>1e4));
+        require(_DonateId!=0 || _GrowdropAmount>1e6);
         Add(_GrowdropAmount,_ToUniswapTokenAmount);
         
         GrowdropCount += 1;
         GrowdropOwnerFeePercent[GrowdropCount] = CurrentOwnerFeePercent;
         AddToUniswap[GrowdropCount] = _ToUniswapTokenAmount==0 ? false : true;
-        TokenMinimum[GrowdropCount] = _TokenMinimum;
 
         Token[GrowdropCount] = EIP20Interface(TokenAddr);
         CToken[GrowdropCount] = CTokenInterface(CTokenAddr);
@@ -309,7 +316,7 @@ contract Growdrop {
      * @dev Investor funds ERC20 token to Growdrop by Growdrop's identifier.
      * Should be approved before call.
      * Funding amount will be calculated as CToken and recalculated to minimum which has same value as calculated CToken before funding.
-     * Funding amount should be bigger than 'TokenMinimum'.
+     * Funding ctoken amount should be bigger than 0.
      * Can be funded only with Growdrop's 'Token'.
      * Can fund only after started and before ended.
      * 
@@ -322,20 +329,28 @@ contract Growdrop {
         require(GrowdropStart[_GrowdropCount], "not started");
         require(now<GrowdropEndTime[_GrowdropCount], "already ended");
         require(msg.sender!=Beneficiary[_GrowdropCount], "beneficiary cannot mint");
-        require(Amount>TokenMinimum[_GrowdropCount], "amount too low");
         
         uint256 _exchangeRateCurrent = CToken[_GrowdropCount].exchangeRateCurrent();
         uint256 _ctoken;
         uint256 _toMinAmount;
         (_ctoken, _toMinAmount) = toMinAmount(Amount, _exchangeRateCurrent);
+        require(_ctoken>0, "amount too low");
+        uint256 actualAmount;
+        uint256 actualCToken;
+        (actualCToken, actualAmount) = toActualAmount(_toMinAmount, _exchangeRateCurrent);
 
         CTokenPerAddress[_GrowdropCount][msg.sender] = Add(CTokenPerAddress[_GrowdropCount][msg.sender], _ctoken);
         TotalCTokenAmount[_GrowdropCount] = Add(TotalCTokenAmount[_GrowdropCount], _ctoken);
-        AllCTokenAmount[address(CToken[_GrowdropCount])] = Add(AllCTokenAmount[address(CToken[_GrowdropCount])], _ctoken);
+        
+        ActualCTokenPerAddress[_GrowdropCount][msg.sender] = Add(ActualCTokenPerAddress[_GrowdropCount][msg.sender], actualCToken);
+        TotalCTokenActual[_GrowdropCount] = Add(TotalCTokenActual[_GrowdropCount], actualCToken);
+        
 
         InvestAmountPerAddress[_GrowdropCount][msg.sender] = Add(InvestAmountPerAddress[_GrowdropCount][msg.sender], _toMinAmount);
         TotalMintedAmount[_GrowdropCount] = Add(TotalMintedAmount[_GrowdropCount], _toMinAmount);
-        AllInvestAmount[address(Token[_GrowdropCount])] = Add(AllInvestAmount[address(Token[_GrowdropCount])], _toMinAmount);
+        
+        ActualPerAddress[_GrowdropCount][msg.sender] = Add(ActualPerAddress[_GrowdropCount][msg.sender], actualAmount);
+        TotalMintedActual[_GrowdropCount] = Add(TotalMintedActual[_GrowdropCount], actualAmount);
 
         require(Token[_GrowdropCount].transferFrom(msg.sender, address(this), _toMinAmount), "transfer token error");
         require(Token[_GrowdropCount].approve(address(CToken[_GrowdropCount]), _toMinAmount), "approve token error");
@@ -348,7 +363,7 @@ contract Growdrop {
     
     /**
      * @dev Investor refunds ERC20 token to Growdrop by Growdrop's identifier.
-     * Refunding amount should be bigger than 'TokenMinimum'.
+     * Refunding CToken amount should be bigger than 0.
      * Refunding amount calculated as CToken should be smaller than investor's funded amount calculated as CToken by Growdrop's identifier.
      * Can refund only after started and before ended.
      * 
@@ -360,21 +375,30 @@ contract Growdrop {
     function Redeem(uint256 _GrowdropCount, uint256 Amount) public {
         require(GrowdropStart[_GrowdropCount], "not started");
         require(now<GrowdropEndTime[_GrowdropCount], "already ended");
-        require(Amount>TokenMinimum[_GrowdropCount], "amount too low");
 
         uint256 _exchangeRateCurrent = CToken[_GrowdropCount].exchangeRateCurrent();
         uint256 _ctoken;
         uint256 _toMinAmount;
         (_ctoken,_toMinAmount) = toMinAmount(Amount, _exchangeRateCurrent);
-        require(_ctoken<=MulAndDiv(InvestAmountPerAddress[_GrowdropCount][msg.sender], 1e18, _exchangeRateCurrent), "redeem too big");
+        
+        require(_ctoken>0 && _ctoken<=MulAndDiv(InvestAmountPerAddress[_GrowdropCount][msg.sender], 1e18, _exchangeRateCurrent), "redeem error");
+        
+        uint256 actualAmount;
+        uint256 actualCToken;
+        (actualCToken, actualAmount) = toActualAmount(_toMinAmount, _exchangeRateCurrent);
 
         CTokenPerAddress[_GrowdropCount][msg.sender] = Sub(CTokenPerAddress[_GrowdropCount][msg.sender], _ctoken);
         TotalCTokenAmount[_GrowdropCount] = Sub(TotalCTokenAmount[_GrowdropCount],_ctoken);
-        AllCTokenAmount[address(CToken[_GrowdropCount])] = Sub(AllCTokenAmount[address(CToken[_GrowdropCount])], _ctoken);
+        
+        ActualCTokenPerAddress[_GrowdropCount][msg.sender] = Sub(ActualCTokenPerAddress[_GrowdropCount][msg.sender], actualCToken);
+        TotalCTokenActual[_GrowdropCount] = Sub(TotalCTokenActual[_GrowdropCount], actualCToken);
+        
 
         InvestAmountPerAddress[_GrowdropCount][msg.sender] = Sub(InvestAmountPerAddress[_GrowdropCount][msg.sender], _toMinAmount);
         TotalMintedAmount[_GrowdropCount] = Sub(TotalMintedAmount[_GrowdropCount], _toMinAmount);
-        AllInvestAmount[address(Token[_GrowdropCount])] = Sub(AllInvestAmount[address(Token[_GrowdropCount])], _toMinAmount);
+        
+        ActualPerAddress[_GrowdropCount][msg.sender] = Sub(ActualPerAddress[_GrowdropCount][msg.sender], actualAmount);
+        TotalMintedActual[_GrowdropCount] = Sub(TotalMintedActual[_GrowdropCount], actualAmount);
 
         require(CToken[_GrowdropCount].redeemUnderlying(Amount)==0, "error in redeem");
         require(Token[_GrowdropCount].transfer(msg.sender, Amount), "transfer token error");
@@ -415,19 +439,16 @@ contract Growdrop {
         }
         //If caller is investee
         if(msg.sender==Beneficiary[_GrowdropCount]) {
-            //If all invested funds are below 'TokenMinimum', do nothing.
-            if(TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount]) {
-                EventIdx += 1;
-                emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, 0, 0, 2, now);
-                return;
-            }
-            uint256 OwnerFee = MulAndDiv(TotalInterestOver[_GrowdropCount], GrowdropOwnerFeePercent[_GrowdropCount], 100);
             uint256 beneficiaryinterest;
             bool success;
+            if(TotalInterestOverActual[_GrowdropCount]==0) {
+                ToUniswap=false;
+                success=true;
+            }
+            uint256 OwnerFee = MulAndDiv(TotalInterestOver[_GrowdropCount], GrowdropOwnerFeePercent[_GrowdropCount], 100);
             if(ToUniswap) {
                 uint256 ToUniswapInterestRateCalculated = MulAndDiv(TotalInterestOver[_GrowdropCount], ToUniswapInterestRate[_GrowdropCount], 100);
                 beneficiaryinterest = TotalInterestOver[_GrowdropCount]-ToUniswapInterestRateCalculated-OwnerFee;
-                require(Token[_GrowdropCount].transfer(Beneficiary[_GrowdropCount], beneficiaryinterest), "transfer interest error");
                 
                 require(Token[_GrowdropCount].approve(address(Tokenswap), ToUniswapInterestRateCalculated), "approve token error");
                 require(GrowdropToken[_GrowdropCount].approve(address(Tokenswap), ToUniswapTokenAmount[_GrowdropCount]), "approve growdrop error");
@@ -439,26 +460,24 @@ contract Growdrop {
                     ToUniswapTokenAmount[_GrowdropCount]
                 );
             } else {
-                beneficiaryinterest = Sub(TotalInterestOver[_GrowdropCount], OwnerFee);
-                if(DonateId[_GrowdropCount]==0) {
-                    sendTokenInWithdraw(_GrowdropCount, Beneficiary[_GrowdropCount], beneficiaryinterest, ToUniswapTokenAmount[_GrowdropCount]);
-                } else {
-                    require(Token[_GrowdropCount].transfer(Beneficiary[_GrowdropCount], beneficiaryinterest), "transfer interest error");
+                beneficiaryinterest = TotalInterestOver[_GrowdropCount]-OwnerFee;
+                if(DonateId[_GrowdropCount]!=0) {
+                    success=true;
                 }
             }
+            sendTokenInWithdraw(_GrowdropCount, Beneficiary[_GrowdropCount], beneficiaryinterest, success ? 0 : ToUniswapTokenAmount[_GrowdropCount]);
             require(Token[_GrowdropCount].transfer(owner, OwnerFee), "transfer fee error");
             
             EventIdx += 1;
             emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, beneficiaryinterest, success ? 1 : 0, 2, now);
         } else {
             //If caller is investor
-            uint256 investorTotalAmount = MulAndDiv(CTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], 1e18)+1;
-            uint256 investorTotalInterest = (TotalInterestOver[_GrowdropCount]>TokenMinimum[_GrowdropCount] && investorTotalAmount>InvestAmountPerAddress[_GrowdropCount][msg.sender]) ? investorTotalAmount-InvestAmountPerAddress[_GrowdropCount][msg.sender] : 0;
+            uint256 investorTotalInterest = ActualCTokenPerAddress[_GrowdropCount][msg.sender] - MulAndDiv(ActualPerAddress[_GrowdropCount][msg.sender], 1e29, ExchangeRateOver[_GrowdropCount]);
             
             uint256 tokenByInterest = DonateId[_GrowdropCount]==0 ? MulAndDiv(
                 investorTotalInterest,
                 GrowdropAmount[_GrowdropCount],
-                (TotalInterestOver[_GrowdropCount]==0 ? 1 : TotalInterestOver[_GrowdropCount])
+                (TotalInterestOverActual[_GrowdropCount]==0 ? 1 : TotalInterestOverActual[_GrowdropCount])
             ) : investorTotalInterest;
             tokenByInterest = sendTokenInWithdraw(_GrowdropCount, msg.sender, InvestAmountPerAddress[_GrowdropCount][msg.sender], tokenByInterest);
 
@@ -492,7 +511,7 @@ contract Growdrop {
     
     /**
      * @dev Ends Growdrop by '_GrowdropCount'.
-     * If total funded CToken is lower than 'TokenMinimum' and Growdrop is not donation, transfers 'GrowdropAmount' and 'ToUniswapTokenAmount' back to 'Beneficiary'.
+     * If total actual accrued interest is 0 and Growdrop is not donation, transfers 'GrowdropAmount' and 'ToUniswapTokenAmount' back to 'Beneficiary'.
      * Total accrued interest is calculated -> maximum amount of Growdrop's all CToken to ERC20 token - total funded ERC20 amount of Growdrop.
      * 
      * Emits {GrowdropAction} event indicating Growdrop's identifier and event information.
@@ -510,8 +529,10 @@ contract Growdrop {
             if(TotalCTokenAmount[_GrowdropCount]!=0) {
                 require(CToken[_GrowdropCount].redeemUnderlying(_toAmount)==0, "error in redeem");
             }
+            TotalInterestOverActual[_GrowdropCount] = TotalCTokenActual[_GrowdropCount] - MulAndDiv(TotalMintedActual[_GrowdropCount], 1e29, ExchangeRateOver[_GrowdropCount]);
+            
             TotalInterestOver[_GrowdropCount] = _toAmount>TotalMintedAmount[_GrowdropCount] ? _toAmount-TotalMintedAmount[_GrowdropCount] : 0;
-            if(TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount]) {
+            if(TotalInterestOverActual[_GrowdropCount]==0) {
                 if(DonateId[_GrowdropCount]==0) {
                     require(
                         GrowdropToken[_GrowdropCount].transfer(
@@ -523,7 +544,7 @@ contract Growdrop {
             }
             
             EventIdx += 1;
-            emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, TotalInterestOver[_GrowdropCount]<=TokenMinimum[_GrowdropCount] ? 1 : 0, 0, 6, now);
+            emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, TotalInterestOverActual[_GrowdropCount]==0 ? 1 : 0, 0, 6, now);
         }
     }
     
@@ -560,6 +581,20 @@ contract Growdrop {
             ),
             1
         ));
+    }
+    
+    /**
+     * @dev Calculates actual CToken and amount of ERC20 token from ERC20 token amount and exchange rate of Compound CToken.
+     * Need for calculating percentage of interest accrued.
+     * @param tokenAmount ERC20 token amount
+     * @param exchangeRate exchange rate of Compound CToken
+     * @return calculated actual CToken amount
+     * @return calculated actual minimum amount of ERC20 token
+     */
+    function toActualAmount(uint256 tokenAmount, uint256 exchangeRate) private pure returns (uint256, uint256) {
+        uint256 _ctoken = MulAndDiv(tokenAmount, 1e29, exchangeRate);
+        uint256 _token = MulAndDiv(_ctoken, 1, exchangeRate);
+        return (_ctoken, _token);
     }
     
     function MulAndDiv(uint256 a, uint256 b, uint256 c) private pure returns (uint256) {
