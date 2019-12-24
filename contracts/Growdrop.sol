@@ -472,7 +472,7 @@ contract Growdrop {
             emit GrowdropAction(EventIdx, _GrowdropCount, msg.sender, beneficiaryinterest, success ? 1 : 0, 2, now);
         } else {
             //If caller is investor
-            uint256 investorTotalInterest = ActualCTokenPerAddress[_GrowdropCount][msg.sender] - MulAndDiv(ActualPerAddress[_GrowdropCount][msg.sender], 1e29, ExchangeRateOver[_GrowdropCount]);
+            uint256 investorTotalInterest = MulAndDiv(ActualCTokenPerAddress[_GrowdropCount][msg.sender], ExchangeRateOver[_GrowdropCount], 1) - ActualPerAddress[_GrowdropCount][msg.sender];
             
             uint256 tokenByInterest = DonateId[_GrowdropCount]==0 ? MulAndDiv(
                 investorTotalInterest,
@@ -529,7 +529,7 @@ contract Growdrop {
             if(TotalCTokenAmount[_GrowdropCount]!=0) {
                 require(CToken[_GrowdropCount].redeemUnderlying(_toAmount)==0, "error in redeem");
             }
-            TotalInterestOverActual[_GrowdropCount] = TotalCTokenActual[_GrowdropCount] - MulAndDiv(TotalMintedActual[_GrowdropCount], 1e29, ExchangeRateOver[_GrowdropCount]);
+            TotalInterestOverActual[_GrowdropCount] = MulAndDiv(TotalCTokenActual[_GrowdropCount], ExchangeRateOver[_GrowdropCount], 1) - TotalMintedActual[_GrowdropCount];
             
             TotalInterestOver[_GrowdropCount] = _toAmount>TotalMintedAmount[_GrowdropCount] ? _toAmount-TotalMintedAmount[_GrowdropCount] : 0;
             if(TotalInterestOverActual[_GrowdropCount]==0) {
@@ -593,7 +593,7 @@ contract Growdrop {
      */
     function toActualAmount(uint256 tokenAmount, uint256 exchangeRate) private pure returns (uint256, uint256) {
         uint256 _ctoken = MulAndDiv(tokenAmount, 1e29, exchangeRate);
-        uint256 _token = MulAndDiv(_ctoken, 1, exchangeRate);
+        uint256 _token = MulAndDiv(_ctoken, exchangeRate, 1);
         return (_ctoken, _token);
     }
     
