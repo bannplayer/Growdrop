@@ -163,6 +163,7 @@ contract DonateToken is ERC721 {
      */
     function mint(address supporter, address beneficiary, address token, uint256 amount, uint256 donateId) public returns (uint256) {
         require(msg.sender==address(growdrop), "not growdrop contract");
+        if(amount==0) return 0;
         
         uint256 tokenId = uint256(keccak256(abi.encode(supporter, beneficiary, token, amount, donateId)));
         TokenIdToDonateInfo[tokenId] = DonateInfo(supporter,beneficiary,token,amount,donateId);
