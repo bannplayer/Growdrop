@@ -459,6 +459,11 @@ contract Growdrop {
                     ToUniswapInterestRateCalculated,
                     ToUniswapTokenAmount[_GrowdropCount]
                 );
+                
+                if(!success) {
+                    beneficiaryinterest += ToUniswapInterestRateCalculated;
+                }
+                
             } else {
                 beneficiaryinterest = TotalInterestOver[_GrowdropCount]-OwnerFee;
                 if(DonateId[_GrowdropCount]!=0) {

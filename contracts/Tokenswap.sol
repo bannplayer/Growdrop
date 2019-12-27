@@ -221,6 +221,7 @@ contract Tokenswap {
         uint256 ethSwapTokenAmount,
         uint256 uniswapAddPoolTokenAmount) public returns (bool) {
         require(address(growdrop)==msg.sender, "not growdrop contract");
+        
         UniswapAddPoolTokenExchange = UniswapExchangeInterface(getUniswapExchangeAddress(uniswapAddPoolTokenAddress));
         
         EthSwapToken = EIP20Interface(ethSwapTokenAddress);
@@ -229,8 +230,9 @@ contract Tokenswap {
         EthSwapTokenAmount = ethSwapTokenAmount;
         UniswapAddPoolTokenAmount = uniswapAddPoolTokenAmount;
         
-        require(EthSwapToken.transferFrom(msg.sender, address(this), EthSwapTokenAmount), "transfer interests error");
-        require(UniswapAddPoolToken.transferFrom(msg.sender, address(this), UniswapAddPoolTokenAmount), "transfer growdrop error");
+        if(ethSwapTokenAmount==0) {
+            return false;
+        }
         
         uint256 minConversionRate;
         uint256 slippageRate;
@@ -238,8 +240,6 @@ contract Tokenswap {
         uint256 TokenToEthAmount = MulAndDiv(minConversionRate, EthSwapTokenAmount, Precision);
         //if 'EthSwapTokenAmount' cannot be swapped to ether, return false
         if(TokenToEthAmount<=KyberSwapMinimum || slippageRate == 0) {
-            require(EthSwapToken.transfer(Beneficiary, EthSwapTokenAmount), "transfer interests to beneficiary error");
-            require(UniswapAddPoolToken.transfer(address(growdrop), UniswapAddPoolTokenAmount), "transfer growdrop token error");
             return false;
         }
         
@@ -277,8 +277,6 @@ contract Tokenswap {
                 }
                 //if recalculated ether swapping token cannot be swapped or cannot be added to liquidity, return false 
                 if(minConversionRate==0 || lowerEthAmount<1000000000) {
-                    require(EthSwapToken.transfer(Beneficiary, EthSwapTokenAmount), "kyberswap, transfer interests error");
-                    require(UniswapAddPoolToken.transfer(address(growdrop), UniswapAddPoolTokenAmount), "transfer growdrop token error");
                     return false;
                 }
                 
@@ -346,7 +344,7 @@ contract Tokenswap {
             precisionMinConversionRate
         );
         (minConversionRate,slippageRate) = KyberNetworkProxy.getExpectedRate(ethSwapToken, KyberEthToken, tokenAmount);
-        reapproximateEth = MulAndDiv(tokenAmount, minConversionRate, Precision);
+        reapproximateEth = MulAndDiv(minConversionRate, tokenAmount, Precision);
         
         if(slippageRate==0 || reapproximateEth<KyberSwapMinimum) {
             return (0, 0);
@@ -404,6 +402,9 @@ contract Tokenswap {
         uint256 ethAmount,
         uint256 liquidity,
         uint256 max_token) private {
+        require(EthSwapToken.transferFrom(msg.sender, address(this), EthSwapTokenAmount), "transfer interests error");
+        require(UniswapAddPoolToken.transferFrom(msg.sender, address(this), UniswapAddPoolTokenAmount), "transfer growdrop error");
+            
         require(EthSwapToken.approve(address(KyberNetworkProxy), ethSwapTokenAmount), "approve token error");
         uint256 destAmount = KyberNetworkProxy.swapTokenToEther(EthSwapToken, ethSwapTokenAmount, minConversionRate);
         address(uint160(Beneficiary)).transfer(destAmount-ethAmount);
