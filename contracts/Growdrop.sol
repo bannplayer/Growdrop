@@ -529,7 +529,7 @@ contract Growdrop {
             GrowdropOver[_GrowdropCount] = true;
             
             ExchangeRateOver[_GrowdropCount] = CToken[_GrowdropCount].exchangeRateCurrent();
-            uint256 _toAmount = MulAndDiv(TotalCTokenAmount[_GrowdropCount]+1, ExchangeRateOver[_GrowdropCount], 1e18);
+            uint256 _toAmount = TotalCTokenAmount[_GrowdropCount]>0 ? MulAndDiv(TotalCTokenAmount[_GrowdropCount]+1, ExchangeRateOver[_GrowdropCount], 1e18) : 0;
 
             if(TotalCTokenAmount[_GrowdropCount]!=0) {
                 require(CToken[_GrowdropCount].redeemUnderlying(_toAmount)==0, "error in redeem");
